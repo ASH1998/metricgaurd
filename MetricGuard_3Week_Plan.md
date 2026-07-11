@@ -11,10 +11,16 @@ can they run it, can they see the agent think, can they fail to break it.
 1. **Reproducibility** — judges must go from `git clone` to watching the agent
    resolve a conflict, on their machine, without us. `make demo` exists but has
    never been executed end-to-end.
-2. **Visible agency** — the loop works, but most judgment is compressed into one
-   composed investigation tool and a scripted prompt. Judges of "Agents That Do
-   Real Work" need to *watch decisions happen*: which pair to prove, when to
-   refuse to act, what needs a human.
+2. **Visible agency** — the agent is genuinely agentic (iterative tool loop,
+   proof-pair selection, refusal capability, grounding self-rejection) but the
+   agency is *compressed*: one composed investigation tool + a prompt that
+   mandates calling it first. To a judge it can read as: click → pipeline →
+   summary → proposals. The fix is not "more LLM" — it is exposing more
+   consequential decisions in the product experience, and adding a standing
+   **sentinel mode** where the agent acts on its own initiative. Proactivity is
+   not agency: the polling trigger is transport; the agency is the decision
+   chain after it (relevant? conflicts with what? evidence missing? prove?
+   resolve / refuse / dismiss?).
 3. **Something to SEE** — the CLI + DataHub tags don't produce a "whoa" moment.
    The demo needs a visual that is *agentic*, not dashboard wallpaper. Answer:
    **Mission Control** (week 2) — a live view of the agent investigating, being
@@ -107,32 +113,74 @@ inline JS/SVG. The browser never calls an LLM directly; it invokes the existing
 MetricGuard agent API, and every governance mutation still passes through the
 approval-gated DataHub client. If scope threatens week 2, cut panels 4 then 3.
 
-### Agent scenarios (the content Mission Control displays)
+### Decompose the investigation into visible decisions
 
+Keep the deterministic engines untouched; give the agent *narrower* operations
+so its choices become the product experience: identify changed candidate → find
+plausible peers → inspect org context → compare selected definitions → choose a
+proof pair → assess evidence sufficiency → resolve / refuse / escalate. The LLM
+chooses among deterministic operations — it never replaces their math. The
+composed mega-tool stays as the fast path; the decomposed path is what sentinel
+and demos use.
+
+### Sentinel mode (`metricguard sentinel`) — the standing agent
+
+The winning beat: *a new SQL definition appears in DataHub. Nobody asks
+MetricGuard anything. It notices, determines the change threatens an approved
+metric, gathers graph + warehouse evidence, and either stages a governed
+resolution or explicitly asks for the missing human judgment.*
+
+- Persist a graph cursor / observed-definition fingerprint; on genuine change,
+  open a durable investigation automatically. Reuse the run store, UI (runs
+  already auto-appear), evidence engines, and proposal gate — new code is the
+  cursor + trigger + decision chain.
+- Polling is the **demo transport**, presented as such; DataHub Actions (the
+  real-time metadata-event framework) is the documented production path.
+- **Three first-class terminal outcomes** for every autonomous investigation:
+  `staged_resolution` · `needs_human_decision` · `dismissed_with_evidence`.
+  Dismissed-with-evidence is what separates a sentinel from an alert generator.
+- **Show why effort was spent** — timeline decisions like "skipped 18 unchanged
+  queries", "timezone + source_population changed", "chose this pair for
+  largest downstream blast radius", "warehouse unavailable; canonical would be
+  under-supported; no proposal staged."
+
+### Agent scenarios (the content the UI displays)
+
+- [ ] **Sentinel beat**: ingest a rogue (ideally AI-generated) query into
+      DataHub live; the dashboard grows an investigation nobody asked for, with
+      a staged proposal (or explicit refusal) at the human gate. Pairs with the
+      narrative reframe: agents mass-produce SQL now — MetricGuard is the agent
+      that keeps other agents' numbers honest.
 - [ ] **Refusal scenario**: an investigation where evidence is genuinely
       ambiguous (e.g. WAU family — no warehouse data, symmetric graph evidence).
-      The agent must decline to stage and state exactly what human decision is
-      needed. The single most convincing "real agent" beat we can show.
-- [ ] **Decision legibility**: run traces carry the *why* — why this pair was
-      proven, why this canonical, which evidence carried it — so both
-      `runs show` and the timeline panel can render it.
+      The agent declines to stage and states exactly what human decision is
+      needed — i.e. `needs_human_decision` exercised on camera.
 - [ ] **Guard as ongoing work**: a real GitHub Actions example in-repo that runs
       `guard datahub-check` on PR-changed SQL (exit codes are already
-      contractual). Turns "agent did work once" into "agent guards forever."
+      contractual) — the CI complement to sentinel.
 - [ ] Full-catalog scan (`keyword=*`) handles the enlarged org (families +
       decoys) in one run without prompt surgery.
 
-Milestone: `metricguard ui --replay` plays the golden run start-to-finish, and
+Milestone: sentinel catches an unannounced change end-to-end on screen, and the
 three rehearsed scenarios (discover+resolve · refuse · guard-catch) each show a
-different kind of judgment on screen.
+different kind of judgment, with the *why* legible in the timeline.
 
 ## Week 3 (Jul 26–Aug 1) — "OSS, scale, freeze"
 
 Goal: bonus criteria locked; everything frozen and boring.
 
-- [ ] **Submit the Skill upstream** (`datahub-semantic-conflicts`) — early enough
-      that a maintainer response can land before judging. Merged/submitted OSS
-      is an explicit bonus criterion.
+- [ ] **Submit the Skill upstream** (`datahub-semantic-conflicts`) — target the
+      official `datahub-project/datahub-skills` registry (ships five skills:
+      setup/search/lineage/enrich/quality; ours is a credible sixth — a genuinely
+      new workflow, which is exactly what DataHub says skills are for). Submit
+      early enough that a maintainer response can land before judging.
+- [ ] **`datahub-agent-context` SDK spike (timeboxed, half a day)** — compare
+      its `build_langchain_tools(DataHubClient)` path against our MCP path:
+      tool coverage, self-hosted compatibility, and whether writes can be forced
+      through the approval choke point. Adopt ONLY if it deletes meaningful code
+      or unlocks capabilities — not for the sentence. Note: docs are ahead of
+      our 1.5 server (e.g. `add_glossary_terms` vs `add_terms` naming) — runtime
+      capability verification stays regardless.
 - [ ] README final pass *as a judge*: follow it verbatim on a clean machine
       (including `metricguard ui --replay` on the shipped example run).
 - [ ] Ship a **golden replay run** in `examples/` so judges get the Mission
@@ -149,11 +197,13 @@ Milestone: submission-ready repo; only presentation work remains.
 
 ## Week 4 (Aug 2–10) — Post-production (reserved)
 
-- 3-minute video, now storyboarded around Mission Control: open on the fight
-  (two dashboards, two numbers) → agent timeline starts streaming → conflict
-  map assembles, decoys stay out → divergence chart draws the 15% gap → human
-  approves at the gate → cut to DataHub UI showing the write-back → guard
-  catches the drift PR. Record against the frozen env.
+- 3-minute video, storyboarded around the UI: open on the fight (two
+  dashboards, two numbers) → agent timeline streams → divergence chart draws
+  the 15% gap → human approves at the gate → cut to stock DataHub UI showing
+  the governed write-back → **climax: sentinel** — a rogue AI-generated query
+  lands in DataHub, nobody touches anything, and MetricGuard catches it,
+  proves it, and asks for the one human decision it needs. Record against the
+  frozen env.
 - Devpost text, category selection, screenshots, survey opt-in.
 - Slack: buffer for overruns. Submit **Aug 8**, not Aug 10.
 
@@ -167,6 +217,8 @@ Milestone: submission-ready repo; only presentation work remains.
 | OpenSearch dies on the EC2 box mid-demo | Fix max_map_count now; local quickstart is the primary demo path |
 | Decoys accidentally cluster (embarrassing inverse) | Deterministic clustering signals + tests before any demo |
 | Mission Control scope creep | Replay-first; panel cut order 4→3; one file, no framework, read-only |
+| Sentinel scope creep (event infra, schedulers) | Polling cursor is the demo transport; DataHub Actions is a documented future path, not built |
+| Decomposed agent path gets flaky vs mega-tool | Mega-tool remains the fast path; decomposed ops are additive, each still deterministic inside |
 | Skill PR sits unreviewed | Submit in week 3's first days; "submitted" already scores |
 | SDK 1.6 vs server 1.5 emit incompatibility | One live emit check in week 1; pin if it bites |
 
