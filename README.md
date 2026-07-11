@@ -10,7 +10,7 @@ much the definitions disagree, helps a human pick one canonical version, writes
 that truth back into DataHub — and then stands guard against future drift.
 
 Built for **Build with DataHub: The Agent Hackathon**. See
-[context.md](context.md) and [MetricGuard_3Week_Plan.md](MetricGuard_3Week_Plan.md).
+[context.md](context.md)
 
 ## Design principle
 
@@ -127,6 +127,4 @@ shaped MCP tools are filtered out before binding.
 Every agent run is persisted under `.metricguard/runs/`. See the compact,
 live-verified artifacts in [`examples/`](examples/).
 
-## License
 
-[Apache-2.0](LICENSE).
