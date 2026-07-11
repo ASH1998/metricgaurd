@@ -6,7 +6,7 @@ built and live-verified (see `progress.md`). What separates a strong finalist
 from the winner is no longer features — it is what a *judge experiences*:
 can they run it, can they see the agent think, can they fail to break it.
 
-## The four gaps between top-5 and top-1
+## The five gaps between top-5 and top-1
 
 1. **Reproducibility** — judges must go from `git clone` to watching the agent
    resolve a conflict, on their machine, without us. `make demo` exists but has
@@ -15,10 +15,14 @@ can they run it, can they see the agent think, can they fail to break it.
    composed investigation tool and a scripted prompt. Judges of "Agents That Do
    Real Work" need to *watch decisions happen*: which pair to prove, when to
    refuse to act, what needs a human.
-3. **Robustness proof** — the demo world is 6 rigged candidates that all cluster.
+3. **Something to SEE** — the CLI + DataHub tags don't produce a "whoa" moment.
+   The demo needs a visual that is *agentic*, not dashboard wallpaper. Answer:
+   **Mission Control** (week 2) — a live view of the agent investigating, being
+   fact-checked, proving divergence, and waiting at the human gate.
+4. **Robustness proof** — the demo world is 6 rigged candidates that all cluster.
    A skeptic's first question: "does it just match everything?" There are no
    negative controls, and the extractor has never met SQL it wasn't tuned for.
-4. **The bonus criteria** — OSS contribution (Skill draft is ready, unsubmitted)
+5. **The bonus criteria** — OSS contribution (Skill draft is ready, unsubmitted)
    and Submission Quality (video, Devpost text — reserved for week 4).
 
 ---
@@ -46,25 +50,74 @@ the decoys — on a machine we've never touched.
 
 ## Week 2 (Jul 19–25) — "Watch the agent think"
 
-Goal: the agent's judgment is legible and demonstrably non-scripted.
+Goal: the agent's judgment is legible, demonstrably non-scripted — and visible
+on a screen that makes people lean in.
+
+### Mission Control (`metricguard ui`) — the demo's face
+
+A local, read-only web view over artifacts that **already exist** (the durable
+run traces in `.metricguard/runs/`, investigation/divergence reports, the
+proposals dir).
+
+**Architecture — the JSON contract is the seam.** The frontend is one static
+page (HTML + inline JS/SVG, no build step, no framework) that consumes only a
+frozen JSON contract: run trace, investigation report, divergence points,
+proposal states. Where that JSON comes from is invisible to the page:
+
+- **Live**: `metricguard ui` — starlette/uvicorn (already in the venv) serving
+  the page + `GET /api/runs`, `GET /api/runs/<id>`, SSE `/api/stream/<id>`.
+  Clean JSON endpoints double as an integration API for CI or other agents.
+- **Static**: `metricguard ui --export <run-id> -o site/` emits page + golden
+  run JSON → **github.io demo site**. On boot the page probes `/api/runs`; no
+  backend → falls back to `./data/*.json` replay mode. Judges click a link and
+  watch the full agent replay with zero installation.
+
+Replay timing is client-side from recorded trace timestamps, so replay needs no
+server at all. Build order: replay mode FIRST (judge/video/offline-safe), live
+SSE second — the demo survives without live.
+
+**Aesthetics**: match DataHub's visual family (spacing, type scale, navy/blue
+palette, card layout) so Mission Control ↔ DataHub UI reads as one coherent
+product. No logo/trade-dress copying — "native companion," not fake DataHub.
+Freeze the JSON contract early so frontend and backend never drift.
+
+Four panels, built in this order (later ones are cuttable):
+
+1. **Agent timeline** — tool calls stream in with args/results; grounding-check
+   interventions render as visible events ("final answer failed grounding →
+   rewrite demanded"). Watching the agent get *fact-checked live* is the beat
+   no other team will have.
+2. **Divergence proof** — the two revenue series drawn from the real divergence
+   points, gap shaded, "first divergence 2022-12-26" annotated. The money shot.
+3. **Org conflict map** — the discovered org assembling as evidence arrives:
+   datasets/owners/domains/lineage, cluster halos, conflict edges colored by
+   severity — and the week-1 decoys visibly staying OUTSIDE the clusters.
+4. **Approval gate** — proposal cards flip pending → approved → executed.
+   Approval itself stays a human action through the existing gated path.
+
+Hard scope rules: read-only over existing JSON; **no npm, no build step, no
+framework** — one HTML file, inline JS/SVG; no LLM calls anywhere in the UI;
+if it threatens week 2, cut panels 4 then 3 — timeline + divergence chart
+alone still carry the demo.
+
+### Agent scenarios (the content Mission Control displays)
 
 - [ ] **Refusal scenario**: an investigation where evidence is genuinely
       ambiguous (e.g. WAU family — no warehouse data, symmetric graph evidence).
       The agent must decline to stage and state exactly what human decision is
-      needed. This is the single most convincing "real agent" beat we can show.
-- [ ] **Decision legibility**: `runs show` renders the *why* — why this pair was
-      proven, why this canonical, which evidence carried it. Judges read traces.
+      needed. The single most convincing "real agent" beat we can show.
+- [ ] **Decision legibility**: run traces carry the *why* — why this pair was
+      proven, why this canonical, which evidence carried it — so both
+      `runs show` and the timeline panel can render it.
 - [ ] **Guard as ongoing work**: a real GitHub Actions example in-repo that runs
-      `guard datahub-check` on PR-changed SQL (the exit codes are already
-      contractual). Turns "agent did work once" into "agent guards forever" —
-      the category's "next person or agent inherits the knowledge" line, live.
+      `guard datahub-check` on PR-changed SQL (exit codes are already
+      contractual). Turns "agent did work once" into "agent guards forever."
 - [ ] Full-catalog scan (`keyword=*`) handles the enlarged org (families +
       decoys) in one run without prompt surgery.
-- [ ] Rehearse the three demo beats end-to-end: discover+resolve · refuse ·
-      guard-catch.
 
-Milestone: three rehearsed scenarios, each showing a different kind of judgment,
-none of which work by luck.
+Milestone: `metricguard ui --replay` plays the golden run start-to-finish, and
+three rehearsed scenarios (discover+resolve · refuse · guard-catch) each show a
+different kind of judgment on screen.
 
 ## Week 3 (Jul 26–Aug 1) — "OSS, scale, freeze"
 
@@ -73,19 +126,27 @@ Goal: bonus criteria locked; everything frozen and boring.
 - [ ] **Submit the Skill upstream** (`datahub-semantic-conflicts`) — early enough
       that a maintainer response can land before judging. Merged/submitted OSS
       is an explicit bonus criterion.
-- [ ] README final pass *as a judge*: follow it verbatim on a clean machine.
+- [ ] README final pass *as a judge*: follow it verbatim on a clean machine
+      (including `metricguard ui --replay` on the shipped example run).
+- [ ] Ship a **golden replay run** in `examples/` so judges get the Mission
+      Control experience with zero infrastructure.
+- [ ] Publish the **github.io demo site** (`metricguard ui --export` → gh-pages)
+      and link it prominently in README + Devpost — judges watch the agent work
+      before they've installed anything.
 - [ ] Refresh `examples/` from the final environment (numbers must match the
       video we record in week 4).
-- [ ] Freeze: seeds, org sim, scenarios, `.env` shape. Anything not frozen by
-      Aug 1 gets cut, not finished.
+- [ ] Freeze: seeds, org sim, scenarios, UI, `.env` shape. Anything not frozen
+      by Aug 1 gets cut, not finished.
 
 Milestone: submission-ready repo; only presentation work remains.
 
 ## Week 4 (Aug 2–10) — Post-production (reserved)
 
-- 3-minute video: open on the fight (two dashboards, two numbers) → live graph
-  discovery → the 15%+ divergence proof → human approves → write-back visible in
-  DataHub UI → guard catches the drift PR. Record against the frozen env.
+- 3-minute video, now storyboarded around Mission Control: open on the fight
+  (two dashboards, two numbers) → agent timeline starts streaming → conflict
+  map assembles, decoys stay out → divergence chart draws the 15% gap → human
+  approves at the gate → cut to DataHub UI showing the write-back → guard
+  catches the drift PR. Record against the frozen env.
 - Devpost text, category selection, screenshots, survey opt-in.
 - Slack: buffer for overruns. Submit **Aug 8**, not Aug 10.
 
@@ -98,12 +159,15 @@ Milestone: submission-ready repo; only presentation work remains.
 | `make demo` hides an env-specific dependency | Week-1 item #1; test on a machine we've never configured |
 | OpenSearch dies on the EC2 box mid-demo | Fix max_map_count now; local quickstart is the primary demo path |
 | Decoys accidentally cluster (embarrassing inverse) | Deterministic clustering signals + tests before any demo |
+| Mission Control scope creep | Replay-first; panel cut order 4→3; one file, no framework, read-only |
 | Skill PR sits unreviewed | Submit in week 3's first days; "submitted" already scores |
-| Scope creep in week 2 agent work | Only the three scenarios; no new engines, no new tools unless a scenario demands one |
 | SDK 1.6 vs server 1.5 emit incompatibility | One live emit check in week 1; pin if it bites |
 
 ## What we deliberately do NOT do
 
-- No custom frontend, no second warehouse, no BI-tool integrations (unchanged).
+- No *product* frontend: Mission Control is a read-only viewer over the audit
+  trail — no auth, no config pages, no editing, no state of its own. DataHub's
+  UI remains where governance lives.
+- No second warehouse, no BI-tool integrations (unchanged).
 - No multi-agent theater — one agent that visibly reasons beats two that don't.
 - No extractor generalization beyond honest failure — seeds stay the golden path.
