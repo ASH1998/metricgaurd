@@ -62,19 +62,23 @@ proposals dir).
 **Architecture — the JSON contract is the seam.** The frontend is one static
 page (HTML + inline JS/SVG, no build step, no framework) that consumes only a
 frozen JSON contract: run trace, investigation report, divergence points,
-proposal states. Where that JSON comes from is invisible to the page:
+proposal states. Where that JSON comes from is invisible to the page.
 
-- **Live**: `metricguard ui` — starlette/uvicorn (already in the venv) serving
-  the page + `GET /api/runs`, `GET /api/runs/<id>`, SSE `/api/stream/<id>`.
-  Clean JSON endpoints double as an integration API for CI or other agents.
-- **Static**: `metricguard ui --export <run-id> -o site/` emits page + golden
-  run JSON → **github.io demo site**. On boot the page probes `/api/runs`; no
-  backend → falls back to `./data/*.json` replay mode. Judges click a link and
-  watch the full agent replay with zero installation.
+**The product is `metricguard ui`, and it works everywhere** — local dev, a
+judge's fresh clone, `make demo`: starlette/uvicorn (now core deps) serving the
+page + `GET /api/runs`, `GET /api/runs/<id>`, SSE `/api/stream/<id>`. Replay
+(`--replay <run-id>`) and live tail are both served this way. The JSON endpoints
+double as an integration API for CI or other agents.
 
-Replay timing is client-side from recorded trace timestamps, so replay needs no
-server at all. Build order: replay mode FIRST (judge/video/offline-safe), live
-SSE second — the demo survives without live.
+**github.io is one frozen snapshot, not a channel**: `metricguard ui --export
+<run-id> -o site/` emits the page + the golden run's JSON; deploy that ONCE to
+gh-pages as the "quick check" link (on boot the page probes `/api/runs`; no
+backend → static replay from `./data/`). No maintenance, no drift — it's a
+screenshot that happens to be alive.
+
+Replay timing is client-side from recorded trace timestamps. Build order:
+replay mode FIRST (judge/video/offline-safe), live SSE second — the demo
+survives without live.
 
 **Aesthetics**: match DataHub's visual family (spacing, type scale, navy/blue
 palette, card layout) so Mission Control ↔ DataHub UI reads as one coherent
@@ -130,9 +134,9 @@ Goal: bonus criteria locked; everything frozen and boring.
       (including `metricguard ui --replay` on the shipped example run).
 - [ ] Ship a **golden replay run** in `examples/` so judges get the Mission
       Control experience with zero infrastructure.
-- [ ] Publish the **github.io demo site** (`metricguard ui --export` → gh-pages)
-      and link it prominently in README + Devpost — judges watch the agent work
-      before they've installed anything.
+- [ ] Deploy the **one frozen gh-pages snapshot** (`metricguard ui --export` of
+      the golden run, deployed once, then left alone) and link it in README +
+      Devpost as the zero-install quick check.
 - [ ] Refresh `examples/` from the final environment (numbers must match the
       video we record in week 4).
 - [ ] Freeze: seeds, org sim, scenarios, UI, `.env` shape. Anything not frozen
