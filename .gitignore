@@ -1,0 +1,26 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.uv-cache/
+
+# MetricGuard runtime state
+.metricguard/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+chore/
+data/
+MetricGuard_3Week_Plan.md
