@@ -75,6 +75,17 @@ def cluster_candidates(candidates: list[MetricDefinition]) -> list[CandidateClus
 
 
 def _pair_score(a: MetricDefinition, b: MetricDefinition) -> tuple[float, list[ClusterEvidence]]:
+    # A governed family label is a hard negative boundary, not a positive shortcut.
+    # We still require semantic evidence to group definitions that share a hint,
+    # but must never merge explicitly different families merely because they read
+    # the same source at the same grain (e.g. weekly revenue vs weekly order count).
+    if a.family_hint and b.family_hint and a.family_hint != b.family_hint:
+        return 0.0, [ClusterEvidence(
+            signal="different_governed_families",
+            detail=f"'{a.family_hint}' != '{b.family_hint}'",
+            weight=0.0,
+        )]
+
     score = 0.0
     evidence: list[ClusterEvidence] = []
 

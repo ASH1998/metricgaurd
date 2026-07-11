@@ -25,9 +25,9 @@ can they run it, can they see the agent think, can they fail to break it.
    The demo needs a visual that is *agentic*, not dashboard wallpaper. Answer:
    **Mission Control** (week 2) — a live view of the agent investigating, being
    fact-checked, proving divergence, and waiting at the human gate.
-4. **Robustness proof** — the demo world is 6 rigged candidates that all cluster.
-   A skeptic's first question: "does it just match everything?" There are no
-   negative controls, and the extractor has never met SQL it wasn't tuned for.
+4. **Robustness proof** — the demo now has 12 conflicting candidates across four
+   independently clustered families, three with live Postgres divergence. It still
+   needs explicit near-miss controls so a skeptic can see what stays out.
 5. **The bonus criteria** — OSS contribution (Skill draft is ready, unsubmitted)
    and Submission Quality (video, Devpost text — reserved for week 4).
 
@@ -47,6 +47,9 @@ Goal: a judge-grade environment that cannot embarrass us.
       story), `weekly_signups` (different entity), an `avg_order_value` tile,
       a raw table with a `revenue` column that isn't a metric. Tests assert
       exclusion with visible clustering evidence.
+- [x] **Broaden positive cases**: add executable `weekly_order_volume` and
+      `weekly_refund_amount` families over the existing Postgres source. The
+      catalog now has four independent conflicts rather than one repeated story.
 - [ ] **Extractor honesty**: unsupported SQL constructs produce an explicit
       "signature incomplete: <construct>" outcome — never a silent misread.
       Matters for the live-judging moment when someone pastes arbitrary SQL.
@@ -155,7 +158,7 @@ resolution or explicitly asks for the missing human judgment.*
 
 ### Agent scenarios (the content the UI displays)
 
-- [ ] **Sentinel beat**: ingest a rogue (ideally AI-generated) query into
+- [x] **Sentinel beat**: ingest new competing queries into
       DataHub live; the dashboard grows an investigation nobody asked for, with
       a staged proposal (or explicit refusal) at the human gate. Pairs with the
       narrative reframe: agents mass-produce SQL now — MetricGuard is the agent
@@ -167,8 +170,9 @@ resolution or explicitly asks for the missing human judgment.*
 - [ ] **Guard as ongoing work**: a real GitHub Actions example in-repo that runs
       `guard datahub-check` on PR-changed SQL (exit codes are already
       contractual) — the CI complement to sentinel.
-- [ ] Full-catalog scan (`keyword=*`) handles the enlarged org (families +
-      decoys) in one run without prompt surgery.
+- [x] Full-catalog scan handles the current 12-definition/four-family org in one
+      run without prompt surgery.
+- [ ] Re-verify the full-catalog scan after the negative-control decoys land.
 
 Milestone: sentinel catches an unannounced change end-to-end on screen, and the
 three rehearsed scenarios (discover+resolve · refuse · guard-catch) each show a

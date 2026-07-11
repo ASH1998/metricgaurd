@@ -115,7 +115,7 @@ async def _gather_graph_reads(keyword: str) -> tuple[list[dict], dict[str, list[
         search = MCPDataHubClient._unwrap(await tools["search"].ainvoke({
             "query": _structured_search_query(keyword),
             "filter": "entity_type = dataset",
-            "num_results": 10,
+            "num_results": 50,
         }))
         results = search.get("searchResults", []) if isinstance(search, dict) else []
         per_dataset: dict[str, list[dict]] = {}
@@ -142,7 +142,7 @@ async def _gather_investigation_reads(
         search = MCPDataHubClient._unwrap(await tools["search"].ainvoke({
             "query": _structured_search_query(keyword),
             "filter": "entity_type = dataset",
-            "num_results": 10,
+            "num_results": 50,
         }))
         results = search.get("searchResults", []) if isinstance(search, dict) else []
         urns: list[str] = []

@@ -66,6 +66,7 @@ def tool_load_seed_definitions() -> str:
                 "sql": sql_path.read_text(),
                 "source": entry.get("source", ""),
                 "owner": entry.get("owner", ""),
+                "family_hint": manifest.get("family", ""),
             })
     if not out:
         return (f"ERROR: no seed definitions found under {_SEEDS_ROOT.resolve()} — "

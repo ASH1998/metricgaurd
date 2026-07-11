@@ -42,7 +42,9 @@ or version-skewed capability.
 ## Scope guardrails (3-week solo build)
 - **One warehouse** (Postgres) + **dbt models** + **seeded dashboard metadata** + **ANSI/Postgres SQL** only.
 - No Looker / Tableau / Power BI / Databricks. Avoid the integration swamp.
-- Demo clustering only needs to work on our seeded metric families — we control the data.
+- Demo clustering is verified across four seeded families: revenue, order volume,
+  refunds, and WAU. The first three execute against Postgres; WAU deliberately
+  demonstrates evidence-aware refusal when no backing event table exists.
 - UI: **`metricguard ui`** starts and follows investigations, renders evidence,
   and hands staged proposals to the human gate. The CLI remains fully supported;
   **DataHub UI** remains the governed system of record for write-back.

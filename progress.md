@@ -8,8 +8,8 @@ Everything below is **built**; each item states whether it was verified against
 live infrastructure or locally:
 
 - **Deterministic core** — signature extraction, comparison/severity, divergence
-  math, clustering, guard drift. 62 passing tests, CI (ruff + pytest), Apache-2.0.
-- **Graph-native discovery** — `discover --from-graph` rediscovered both seeded
+  math, clustering, guard drift. Full suite passing, CI (ruff + pytest), Apache-2.0.
+- **Graph-native discovery** — `discover --from-graph` rediscovers four seeded
   conflict families from *semantics, not names*, through the official DataHub
   MCP server (search → observed queries → extractor → clustering).
 - **Agent** — composed graph investigation (search → SQL → owners/domains/tags →
@@ -50,6 +50,15 @@ live infrastructure or locally:
   distinguishes currency metrics from counts and handles identical/zero series.
 - **Warehouse proof** — Finance vs Executive weekly revenue: **15.06% mean /
   19.89% max divergence, first divergence 2022-12-26**, executed live.
+- **Expanded conflict estate** — 12 competing definitions across four families.
+  Two additional Postgres-backed proofs are live-verified: Fulfillment vs
+  Executive order volume (**30.05% mean / 34.40% max**) and Finance vs Customer
+  Success refunds (**3.11% mean / 15.14% max**). WAU remains signature-only so
+  refusal is exercised rather than every scenario conveniently producing data.
+  Live DataHub MCP readback returned all 12 candidates as exactly four families.
+  Sentinel run `ce0f39f0c3` autonomously caught the newly emitted order/refund
+  definitions, executed two proofs, staged the refund resolution, and escalated
+  the order-volume naming split for human judgment.
 - **Write-back is real** — approved proposals executed in GMS: canonical/divergent
   tags, decision document with numeric evidence, description redirects, and the
   canonical SemanticSignature as governed structured properties. All mutations
@@ -57,8 +66,8 @@ live infrastructure or locally:
 - **DataHub-backed Guard** — `guard datahub-check` rehydrates the approved
   signature from governed properties. Live: canonical SQL exits 0; unfiltered
   Executive query exits 1 with `filters` as the break.
-- **Simulated org** — `scripts/simulate_org.py`: 5 domains, 5 teams, 8 datasets
-  (dbt/superset/postgres), 6 Query entities with the conflicting SQL, ownership +
+- **Simulated org** — `scripts/simulate_org.py`: 8 domains, 8 teams, 14 derived/source
+  datasets (dbt/superset/postgres), 12 Query entities with conflicting SQL, ownership +
   lineage. 54 aspects, idempotent.
 - **Judge environment** — `make demo`: compose warehouse (:5433) + committed
   gzipped data (`data/fiction_retail/`) + DataHub quickstart + postgres ingestion

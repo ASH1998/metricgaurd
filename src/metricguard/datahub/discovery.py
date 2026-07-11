@@ -48,6 +48,11 @@ def _owner_from(query_name: str) -> str:
     return query_name.split(":", 1)[0].strip() if ":" in query_name else ""
 
 
+def _family_from(query_name: str) -> str:
+    """Read an explicit '<owner>: <family>' Query label when one is governed."""
+    return query_name.split(":", 1)[1].strip() if ":" in query_name else ""
+
+
 def candidates_from_graph(
     client: DataHubClient,
     keyword: str = "*",
@@ -99,6 +104,7 @@ def candidates_from_results(
                 dialect=dialect,
                 source=props.get("description") or f"DataHub query {query_urn}",
                 owner=_owner_from(props.get("name", "")),
+                family_hint=_family_from(props.get("name", "")),
                 signature=extract_signature(sql, dialect=dialect),
                 dataset_urn=dataset_urn,
                 query_urn=query_urn,

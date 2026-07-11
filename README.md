@@ -36,7 +36,9 @@ make demo        # needs docker + uv (and ~8GB free RAM for DataHub quickstart)
 ```
 
 The script is idempotent and prints what to try next. It ends with a smoke
-test that rediscovers both conflict families from the DataHub graph. The LLM
+test that rediscovers four conflict families from the DataHub graph. Three
+families execute against Postgres (`weekly_revenue`, `weekly_order_volume`, and
+`weekly_refund_amount`); WAU remains the deliberate signature-only/refusal case. The LLM
 agent additionally needs `LLM_MODEL` + a provider API key in `.env`; every
 deterministic path (discover, compare, divergence, guard, proposals) works
 without one. Teardown: `make demo-down` (warehouse) and
@@ -74,6 +76,16 @@ uv run metricguard divergence \
   seeds/metric_families/weekly_revenue/exec_dashboard_weekly_revenue.sql \
   seeds/metric_families/weekly_revenue/finance_weekly_revenue.sql \
   --value-col weekly_revenue
+
+# two additional independent warehouse-backed disagreements
+uv run metricguard divergence \
+  seeds/metric_families/weekly_order_volume/fulfillment_order_volume.sql \
+  seeds/metric_families/weekly_order_volume/exec_checkout_count.sql \
+  --value-col weekly_orders
+uv run metricguard divergence \
+  seeds/metric_families/weekly_refund_amount/finance_refund_liability.sql \
+  seeds/metric_families/weekly_refund_amount/support_customer_refunds.sql \
+  --value-col weekly_refunds
 
 # local guard contract (CI-friendly fallback)
 uv run metricguard guard approve weekly_active_users \
@@ -169,4 +181,3 @@ the same ones used by human-started investigations.
 ## License
 
 [Apache-2.0](LICENSE).
-

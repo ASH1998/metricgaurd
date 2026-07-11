@@ -573,6 +573,7 @@ def _load_seeds(seeds_dir: Path) -> list[MetricDefinition]:
             md = MetricDefinition(
                 name=entry["name"], sql=sql,
                 source=entry.get("source", ""), owner=entry.get("owner", ""),
+                family_hint=manifest.get("family", ""),
                 dialect=manifest.get("dialect", settings.dialect),
             )
             md.signature = extract_signature(md.sql, dialect=md.dialect)

@@ -23,13 +23,13 @@ _SPECS = [
     {
         "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:superset,executive_kpis.revenue_tile,PROD)",
         "query_urn": "urn:li:query:mg_exec",
-        "name": "bi-team: revenue_tile",
+        "name": "bi-team: weekly_revenue",
         "sql": (_SEEDS / "exec_dashboard_weekly_revenue.sql").read_text(),
     },
     {
         "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:superset,sales_ops.weekly_bookings,PROD)",
         "query_urn": "urn:li:query:mg_salesops",
-        "name": "sales-operations: weekly_bookings",
+        "name": "sales-operations: weekly_revenue",
         "sql": (_SEEDS / "sales_ops_weekly_revenue.sql").read_text(),
     },
 ]
@@ -46,6 +46,7 @@ def test_candidates_carry_signature_and_provenance():
         assert c.signature is not None            # extractor ran
         assert c.dataset_urn and c.query_urn       # provenance for write-back
         assert c.owner                             # parsed from '<owner>: <metric>'
+        assert c.family_hint == "weekly_revenue"  # explicit label, not inferred from asset name
     # names are the org's inconsistent labels, not a shared family name
     assert {c.name for c in candidates} == {"weekly_revenue", "revenue_tile", "weekly_bookings"}
 
