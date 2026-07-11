@@ -12,7 +12,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from metricguard.agent.runs import AgentRun, ToolTrace
+from metricguard.agent.runs import AgentRun, RunOrigin, ToolTrace
 from metricguard.models import DivergencePoint, DivergenceReport
 
 SCHEMA_VERSION = "1.0"
@@ -55,7 +55,10 @@ def build_mission_control_run(run: AgentRun) -> MissionControlRun:
         TimelineEvent(
             id="run-start",
             kind="run",
-            title="Investigation started",
+            title=(
+                "Sentinel investigation started"
+                if run.origin == RunOrigin.SENTINEL else "Investigation started"
+            ),
             detail=run.goal,
             status="running" if run.status.value == "running" else "success",
             recorded_at=run.started_at,
@@ -68,7 +71,11 @@ def build_mission_control_run(run: AgentRun) -> MissionControlRun:
             id="run-complete",
             kind="complete",
             title="Investigation complete" if not run.error else "Investigation failed",
-            detail=_final_summary(run.final_answer, run.error),
+            detail=_final_summary(
+                run.final_answer,
+                run.error,
+                run.autonomous_outcome.value if run.autonomous_outcome else "",
+            ),
             status="error" if run.error else "success",
             recorded_at=run.completed_at,
             offset_ms=_offset_ms(run.completed_at, run.started_at),
@@ -109,6 +116,15 @@ def _trace_event(trace: ToolTrace, index: int, started_at: datetime) -> Timeline
 def _describe_tool(
     name: str, result: dict[str, Any] | None,
 ) -> tuple[str, str, Literal["tool", "grounding", "decision"]]:
+    if name == "sentinel_change_detection" and result:
+        changed = len(result.get("new_definitions", [])) + len(result.get("semantic_changes", []))
+        return (
+            "DataHub change evaluated",
+            f"{result.get('unchanged_count', 0)} unchanged skipped · "
+            f"{changed} material · {len(result.get('cosmetic_changes', []))} cosmetic · "
+            f"decision: {str(result.get('decision', 'recorded')).replace('_', ' ')}",
+            "decision",
+        )
     if result and "points" in result and "mean_pct_divergence" in result:
         return (
             "Divergence proven",
@@ -175,8 +191,10 @@ def _compact_result(result: dict[str, Any] | None) -> str:
     return f"Evidence recorded ({len(result)} fields)."
 
 
-def _final_summary(answer: str, error: str) -> str:
+def _final_summary(answer: str, error: str, autonomous_outcome: str = "") -> str:
     value = error or answer.strip().replace("\n", " ")
+    if autonomous_outcome and not error:
+        value = f"Outcome: {autonomous_outcome.replace('_', ' ')}. {value}"
     if not value:
         return "Run closed after the recorded evidence and action state were checked."
     return value[:280] + ("…" if len(value) > 280 else "")

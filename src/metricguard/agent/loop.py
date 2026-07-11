@@ -177,9 +177,15 @@ def run_agent(goal: str, verbose: bool = True) -> str:
     return asyncio.run(arun_agent(goal, verbose=verbose))
 
 
-def run_agent_result(goal: str, verbose: bool = True) -> AgentExecution:
+def run_agent_result(
+    goal: str,
+    verbose: bool = True,
+    *,
+    store: AgentRunStore | None = None,
+    run: AgentRun | None = None,
+) -> AgentExecution:
     """Sync facade that also returns the durable trace location."""
-    return asyncio.run(arun_agent_result(goal, verbose=verbose))
+    return asyncio.run(arun_agent_result(goal, verbose=verbose, store=store, run=run))
 
 
 def _text(message: AIMessage) -> str:

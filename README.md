@@ -10,7 +10,7 @@ much the definitions disagree, helps a human pick one canonical version, writes
 that truth back into DataHub — and then stands guard against future drift.
 
 Built for **Build with DataHub: The Agent Hackathon**. See
-[context.md](context.md)
+[the product pitch](docs/pitch.md) and [project context](context.md).
 
 ## Design principle
 
@@ -86,6 +86,10 @@ uv run metricguard agent \
   "Investigate weekly revenue from DataHub, quantify divergence with key_col=week_start \
   and value_col=weekly_revenue, recommend a canonical, and stage the resolution."
 
+# standing agent: baseline once, then watch DataHub for new/changed SQL
+uv run metricguard sentinel --once
+uv run metricguard sentinel --interval 30
+
 # inspect the durable goal/tool/result/action/final-answer audit trail
 uv run metricguard runs list
 uv run metricguard runs show <run-id>
@@ -113,7 +117,8 @@ src/metricguard/
 ├── datahub/       Agent Context Kit MCP reads, graph investigation, gated write-back
 ├── guard/         local and DataHub-backed canonical contracts + drift detection
 ├── agent/         graph-native tools + provider-agnostic decision loop
-└── cli.py         discover / compare / guard / agent
+├── sentinel.py    durable graph fingerprint + autonomous investigation trigger
+└── cli.py         discover / compare / guard / agent / sentinel / ui
 ```
 
 ## Live integrations
@@ -145,8 +150,23 @@ shaped MCP tools are filtered out before binding.
 Every agent run is persisted under `.metricguard/runs/`. See the compact,
 live-verified artifacts in [`examples/`](examples/).
 
+## Standing-agent mode
+
+`metricguard sentinel` observes query definitions through DataHub and stores its
+cursor at `.metricguard/sentinel/state.json`. The first scan creates a baseline
+unless `--investigate-existing` is supplied. Later scans:
+
+- skip unchanged definitions;
+- create an evidence-backed dismissal run for SQL edits whose semantic signature
+  did not change;
+- open an autonomous agent investigation for new definitions or semantic changes.
+
+Every sentinel run records its exact trigger and ends as
+`staged_resolution`, `needs_human_decision`, or `dismissed_with_evidence`.
+Polling is the self-hosted demo transport; the decision and approval paths are
+the same ones used by human-started investigations.
+
 ## License
 
 [Apache-2.0](LICENSE).
-
 

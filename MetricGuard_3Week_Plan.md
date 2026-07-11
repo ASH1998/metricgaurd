@@ -120,8 +120,13 @@ so its choices become the product experience: identify changed candidate → fin
 plausible peers → inspect org context → compare selected definitions → choose a
 proof pair → assess evidence sufficiency → resolve / refuse / escalate. The LLM
 chooses among deterministic operations — it never replaces their math. The
-composed mega-tool stays as the fast path; the decomposed path is what sentinel
-and demos use.
+composed mega-tool stays as the fast path; the decomposed path will become the
+preferred sentinel and demo path once its focused operations are verified.
+
+- [ ] Add change-scoped graph tools for plausible peers and focused context.
+- [ ] Separate pair selection, evidence-sufficiency assessment, and terminal
+      decision into legible trace events. The first sentinel slice still hands
+      material changes to the composed investigation path.
 
 ### Sentinel mode (`metricguard sentinel`) — the standing agent
 
@@ -130,16 +135,20 @@ MetricGuard anything. It notices, determines the change threatens an approved
 metric, gathers graph + warehouse evidence, and either stages a governed
 resolution or explicitly asks for the missing human judgment.*
 
-- Persist a graph cursor / observed-definition fingerprint; on genuine change,
-  open a durable investigation automatically. Reuse the run store, UI (runs
-  already auto-appear), evidence engines, and proposal gate — new code is the
-  cursor + trigger + decision chain.
+- [x] Persist an observed-definition fingerprint; first scan baselines without
+      alerting, cosmetic SQL edits are dismissed by equal semantic signatures,
+      and new/semantic changes open durable autonomous investigations. The run
+      records exact trigger provenance and appears through the existing UI API.
+- [ ] Live-verify a second scan against the demo DataHub after ingesting a rogue
+      Query entity; rehearse restart/retry behavior and capture the golden run.
 - Polling is the **demo transport**, presented as such; DataHub Actions (the
   real-time metadata-event framework) is the documented production path.
-- **Three first-class terminal outcomes** for every autonomous investigation:
+- [x] **Three first-class terminal outcomes** persisted on autonomous runs:
   `staged_resolution` · `needs_human_decision` · `dismissed_with_evidence`.
   Dismissed-with-evidence is what separates a sentinel from an alert generator.
-- **Show why effort was spent** — timeline decisions like "skipped 18 unchanged
+- [x] **Show why effort was spent** — the sentinel trace renders skipped,
+  material, and cosmetic counts plus the investigate/dismiss decision. Continue
+  extending this with agent decisions like "skipped 18 unchanged
   queries", "timezone + source_population changed", "chose this pair for
   largest downstream blast radius", "warehouse unavailable; canonical would be
   under-supported; no proposal staged."
@@ -217,7 +226,7 @@ Milestone: submission-ready repo; only presentation work remains.
 | OpenSearch dies on the EC2 box mid-demo | Fix max_map_count now; local quickstart is the primary demo path |
 | Decoys accidentally cluster (embarrassing inverse) | Deterministic clustering signals + tests before any demo |
 | Mission Control scope creep | Replay-first; panel cut order 4→3; one file, no framework, read-only |
-| Sentinel scope creep (event infra, schedulers) | Polling cursor is the demo transport; DataHub Actions is a documented future path, not built |
+| Sentinel scope creep (event infra, schedulers) | Durable polling fingerprint is built as the demo transport; DataHub Actions remains a documented future path |
 | Decomposed agent path gets flaky vs mega-tool | Mega-tool remains the fast path; decomposed ops are additive, each still deterministic inside |
 | Skill PR sits unreviewed | Submit in week 3's first days; "submitted" already scores |
 | SDK 1.6 vs server 1.5 emit incompatibility | One live emit check in week 1; pin if it bites |

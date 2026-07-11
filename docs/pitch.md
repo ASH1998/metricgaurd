@@ -42,3 +42,15 @@ A new SQL definition appears in DataHub. Nobody asks MetricGuard anything.
 It notices, determines the change threatens an approved business metric,
 gathers graph and warehouse evidence, and either stages a governed resolution
 or explicitly asks for the one human decision it needs.
+
+## The product loop
+
+`metricguard sentinel` keeps a durable fingerprint of the SQL definitions
+observed through DataHub. A new definition or semantic change opens an agent
+investigation; a cosmetic edit is dismissed by deterministic signature evidence
+without spending an LLM call. The resulting case appears in the same durable run
+store and Mission Control timeline as a human-started investigation.
+
+The trigger is intentionally boring. The product value is the bounded decision
+chain after it: *is this relevant, what might it conflict with, which evidence is
+missing, is warehouse proof warranted, and can a resolution be defended?*

@@ -14,10 +14,10 @@ uv sync --extra warehouse        # adds psycopg for live divergence execution
 uv run pytest                    # full test suite
 uv run pytest tests/test_signature_extraction.py -k cosmetic   # single test
 uv run ruff check src tests      # lint
-uv run metricguard --help        # CLI entry point (also: signature, compare, discover, guard, agent)
+uv run metricguard --help        # CLI: signature, compare, discover, guard, agent, sentinel, ui
 ```
 
-CLI commands that work with zero config: `signature`, `compare`, `discover`, `guard approve/check`. Commands needing config: `discover --from-graph`, `resolve`, `guard datahub-check`, and `agent` (DataHub MCP; agent also needs LLM_MODEL + provider API key); divergence execution needs POSTGRES_DSN. Guard exit codes are contractual: 0 ok, 1 drift, 2 no contract — CI depends on them.
+CLI commands that work with zero config: `signature`, `compare`, `discover`, `guard approve/check`. Commands needing config: `discover --from-graph`, `resolve`, `guard datahub-check`, `agent`, and `sentinel` (DataHub MCP; agent/sentinel investigations also need LLM_MODEL + provider API key); divergence execution needs POSTGRES_DSN. Guard exit codes are contractual: 0 ok, 1 drift, 2 no contract — CI depends on them.
 
 ## Architecture — the rules that matter
 
@@ -34,6 +34,13 @@ CLI commands that work with zero config: `signature`, `compare`, `discover`, `gu
 **5. Every component is a callable tool.** Engines are pure functions over serializable Pydantic models, exposed as LangChain `@tool`s in `agent/tools.py`, so agent orchestration (`agent/loop.py`) is just a bind_tools decision loop. New capabilities should follow this shape: pure function → Pydantic models in/out → registered tool.
 
 **6. LLM access is provider-agnostic via LangChain.** Model selection is the `LLM_MODEL` env var (provider-prefixed, e.g. `anthropic:Codex-opus-4-8`) through `init_chat_model` in `llm/client.py`. Structured outputs use `with_structured_output` with Pydantic models from `models.py`. Don't import provider SDKs directly.
+
+**7. Sentinel transport is not agent judgment.** `sentinel.py` deterministically
+fingerprints observed DataHub Query definitions and records trigger provenance.
+Cosmetic edits with identical semantic signatures are dismissed without an LLM;
+new or semantic changes enter the existing agent loop. Every autonomous run must
+end as `staged_resolution`, `needs_human_decision`, or
+`dismissed_with_evidence`, and must retain the same human approval choke point.
 
 ## Seeds and tests
 

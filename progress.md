@@ -2,7 +2,7 @@
 
 _Last updated: 2026-07-12. Deep session narratives: `docs/tags.md`._
 
-## Status: core complete; operational UI vertical slice built
+## Status: core complete; operational UI and sentinel vertical slices built
 
 Everything below is **built**; each item states whether it was verified against
 live infrastructure or locally:
@@ -20,6 +20,13 @@ live infrastructure or locally:
   the exact reason a rewrite was demanded. Family identity comes from DataHub's
   governed `metric_family` property. Verified live with Gemini; reference audited
   run: `f3b6493a03`.
+- **Sentinel foundation** — `metricguard sentinel` maintains a durable DataHub
+  query-definition fingerprint. First scan baselines safely; unchanged definitions
+  are skipped; cosmetic SQL edits become `dismissed_with_evidence` without an LLM
+  call; new or semantic changes open an autonomous run through the existing agent.
+  Trigger provenance and one of the three terminal outcomes are persisted and
+  rendered in the Mission Control timeline. Locally verified with deterministic
+  stubs; live two-scan DataHub verification remains.
 - **MetricGuard UI** — `metricguard ui` is now an operational local application,
   not a demo-only replay page. Users can list and switch durable investigations,
   start a real agent investigation from the browser, follow running work through
@@ -95,5 +102,7 @@ The current UI is the operational foundation, not the finished feature. Next:
   every mutation behind `DataHubClient.write()`;
 - execute `make demo` end-to-end on a clean Docker machine;
 - finish the refusal scenario, decision-legibility traces, and Guard PR workflow.
+- live-verify sentinel against an ingested rogue Query entity, then decompose the
+  composed investigation into narrower, change-scoped agent decisions.
 
 The ordered plan lives in `MetricGuard_3Week_Plan.md`.

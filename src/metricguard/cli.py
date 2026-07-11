@@ -4,7 +4,7 @@ Commands that work today with no warehouse and no LLM key:
   signature, compare, discover (deterministic part), guard approve/check
 
 Commands that need config:
-  discover --explain (LLM_MODEL + API key), agent (same), divergence (POSTGRES_DSN)
+  discover --explain (LLM_MODEL + API key), agent/sentinel (same), divergence (POSTGRES_DSN)
 """
 
 from __future__ import annotations
@@ -436,6 +436,41 @@ def agent(
     result = run_agent_result(goal)
     console.print(Panel(result.answer, title="MetricGuard"))
     console.print(f"[dim]audit trace: {result.trace_path} (run {result.run_id})[/dim]")
+
+
+@app.command()
+def sentinel(
+    once: bool = typer.Option(False, "--once", help="Scan once instead of standing watch"),
+    interval: float = typer.Option(30.0, min=1.0, help="Seconds between graph scans"),
+    keyword: str = typer.Option("*", help="DataHub search scope"),
+    investigate_existing: bool = typer.Option(
+        False, "--investigate-existing",
+        help="Investigate the first observed catalog instead of creating a baseline",
+    ),
+):
+    """Watch DataHub for SQL changes and open autonomous investigations."""
+    if not settings.datahub_mcp_transport:
+        console.print("[yellow]DATAHUB_MCP_TRANSPORT is not set — sentinel needs DataHub.[/yellow]")
+        raise typer.Exit(code=2)
+
+    from metricguard.sentinel import render_result, scan_once, watch
+
+    if once:
+        result = scan_once(keyword=keyword, investigate_existing=investigate_existing)
+        console.print(render_result(result))
+        return
+    console.print(
+        f"[dim]Sentinel watching DataHub every {interval:g}s; Ctrl-C to stop. "
+        "Human approval remains enforced.[/dim]"
+    )
+    try:
+        watch(
+            keyword=keyword,
+            interval_seconds=interval,
+            investigate_existing=investigate_existing,
+        )
+    except KeyboardInterrupt:
+        console.print("\n[dim]Sentinel stopped.[/dim]")
 
 
 @app.command()

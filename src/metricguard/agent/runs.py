@@ -22,6 +22,17 @@ class RunStatus(str, Enum):
     FAILED = "failed"
 
 
+class RunOrigin(str, Enum):
+    HUMAN = "human"
+    SENTINEL = "sentinel"
+
+
+class AutonomousOutcome(str, Enum):
+    STAGED_RESOLUTION = "staged_resolution"
+    NEEDS_HUMAN_DECISION = "needs_human_decision"
+    DISMISSED_WITH_EVIDENCE = "dismissed_with_evidence"
+
+
 class ToolTrace(BaseModel):
     name: str
     arguments: dict[str, Any] = Field(default_factory=dict)
@@ -34,6 +45,9 @@ class AgentRun(BaseModel):
     id: str = Field(default_factory=lambda: uuid.uuid4().hex[:10])
     goal: str
     model: str
+    origin: RunOrigin = RunOrigin.HUMAN
+    trigger: dict[str, Any] = Field(default_factory=dict)
+    autonomous_outcome: AutonomousOutcome | None = None
     status: RunStatus = RunStatus.RUNNING
     started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: datetime | None = None
@@ -68,8 +82,15 @@ class AgentRunStore:
             temporary.unlink(missing_ok=True)
         return path
 
-    def start(self, goal: str, model: str) -> AgentRun:
-        run = AgentRun(goal=goal, model=model)
+    def start(
+        self,
+        goal: str,
+        model: str,
+        *,
+        origin: RunOrigin = RunOrigin.HUMAN,
+        trigger: dict[str, Any] | None = None,
+    ) -> AgentRun:
+        run = AgentRun(goal=goal, model=model, origin=origin, trigger=trigger or {})
         self.save(run)
         return run
 

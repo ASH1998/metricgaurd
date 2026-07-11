@@ -4,7 +4,14 @@ from pathlib import Path
 
 from starlette.testclient import TestClient
 
-from metricguard.agent.runs import AgentRun, AgentRunStore, RunStatus, ToolTrace
+from metricguard.agent.runs import (
+    AgentRun,
+    AgentRunStore,
+    AutonomousOutcome,
+    RunOrigin,
+    RunStatus,
+    ToolTrace,
+)
 from metricguard.ui.contracts import build_mission_control_run
 from metricguard.ui import server
 from metricguard.ui.server import create_app, dashboard_html, export_run
@@ -71,6 +78,31 @@ def test_contract_exposes_grounding_intervention():
     assert event.kind == "grounding"
     assert event.title == "Grounding intervention"
     assert "invented proposal ID" in event.detail
+
+
+def test_contract_makes_sentinel_trigger_and_outcome_visible():
+    run = _run()
+    run.origin = RunOrigin.SENTINEL
+    run.autonomous_outcome = AutonomousOutcome.NEEDS_HUMAN_DECISION
+    run.tool_traces.insert(0, ToolTrace(
+        name="sentinel_change_detection",
+        arguments={"keyword": "*"},
+        result=json.dumps({
+            "new_definitions": [{"name": "rogue_revenue"}],
+            "semantic_changes": [],
+            "cosmetic_changes": [],
+            "unchanged_count": 18,
+            "decision": "investigate",
+        }),
+        recorded_at=run.started_at + timedelta(seconds=1),
+    ))
+
+    contract = build_mission_control_run(run)
+
+    assert contract.timeline[0].title == "Sentinel investigation started"
+    assert contract.timeline[1].title == "DataHub change evaluated"
+    assert "18 unchanged skipped" in contract.timeline[1].detail
+    assert "needs human decision" in contract.timeline[-1].detail
 
 
 def test_api_lists_and_returns_frozen_contract(tmp_path: Path):

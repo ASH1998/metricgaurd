@@ -1,6 +1,6 @@
 import json
 
-from metricguard.agent.runs import AgentRunStore, RunStatus
+from metricguard.agent.runs import AgentRunStore, AutonomousOutcome, RunOrigin, RunStatus
 
 
 def test_agent_run_store_records_tools_and_completion(tmp_path):
@@ -38,6 +38,23 @@ def test_run_store_exposes_stable_trace_path(tmp_path):
     store = AgentRunStore(directory=tmp_path)
     run = store.start("Trace me", "test:model")
     assert store.path_for(run.id) == tmp_path / f"{run.id}.json"
+
+
+def test_run_store_persists_autonomous_provenance(tmp_path):
+    store = AgentRunStore(directory=tmp_path)
+    run = store.start(
+        "Investigate a changed query",
+        "test:model",
+        origin=RunOrigin.SENTINEL,
+        trigger={"query_urn": "urn:li:query:changed"},
+    )
+    run.autonomous_outcome = AutonomousOutcome.NEEDS_HUMAN_DECISION
+    store.save(run)
+
+    loaded = store.get(run.id)
+    assert loaded.origin == RunOrigin.SENTINEL
+    assert loaded.trigger["query_urn"] == "urn:li:query:changed"
+    assert loaded.autonomous_outcome == AutonomousOutcome.NEEDS_HUMAN_DECISION
 
 
 def test_run_store_uses_atomic_replace_and_leaves_no_temporary_file(monkeypatch, tmp_path):
