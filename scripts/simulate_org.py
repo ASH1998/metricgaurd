@@ -91,6 +91,9 @@ TEAMS: dict[str, tuple[str, str, str]] = {
     "product-analytics": ("Product Analytics", "product", "Product"),
     "sales-operations": ("Sales Operations", "sales_ops", "Sales Ops"),
     "bi-team": ("BI / Executive", "bi", "Business Intelligence"),
+    "fulfillment-analytics": ("Fulfillment Analytics", "operations", "Operations"),
+    "customer-success": ("Customer Success", "customer_experience", "Customer Experience"),
+    "risk-analytics": ("Risk Analytics", "risk", "Risk"),
 }
 
 # Which source tables each definition reads (from the seed SQL). Kept explicit
@@ -102,6 +105,12 @@ UPSTREAMS: dict[str, list[str]] = {
     "marketing_wau": ["events"],
     "product_wau": ["events"],
     "finance_wau": ["billable_events"],
+    "fulfillment_order_volume": ["orders"],
+    "sales_accepted_orders": ["orders"],
+    "exec_checkout_count": ["orders"],
+    "finance_refund_liability": ["returns"],
+    "support_customer_refunds": ["returns"],
+    "risk_refund_exposure": ["returns"],
 }
 
 # Synthetic "when this definition landed" dates — staggered so the graph reads
@@ -113,6 +122,12 @@ CREATED_ON: dict[str, str] = {
     "marketing_wau": "2022-08-01",
     "product_wau": "2022-10-18",
     "finance_wau": "2023-01-09",
+    "fulfillment_order_volume": "2023-03-06",
+    "sales_accepted_orders": "2023-04-17",
+    "exec_checkout_count": "2023-06-12",
+    "finance_refund_liability": "2023-05-01",
+    "support_customer_refunds": "2023-07-10",
+    "risk_refund_exposure": "2023-09-18",
 }
 
 
