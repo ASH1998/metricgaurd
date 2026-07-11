@@ -8,7 +8,7 @@ Everything below is **built**; each item states whether it was verified against
 live infrastructure or locally:
 
 - **Deterministic core** — signature extraction, comparison/severity, divergence
-  math, clustering, guard drift. 56 passing tests, CI (ruff + pytest), Apache-2.0.
+  math, clustering, guard drift. 62 passing tests, CI (ruff + pytest), Apache-2.0.
 - **Graph-native discovery** — `discover --from-graph` rediscovered both seeded
   conflict families from *semantics, not names*, through the official DataHub
   MCP server (search → observed queries → extractor → clustering).
@@ -36,6 +36,11 @@ live infrastructure or locally:
   rendering of the real 71-point weekly-revenue proof. Visually checked at 1280px
   and 390px with no horizontal overflow. Opening `index.html` through `file://`
   intentionally shows startup guidance because artifacts require the local server.
+- **Live-flow hardening** — run saves use fsync + atomic replacement; readers skip
+  transient or invalid JSON; SSE retains browser auto-reconnect; replay mode rejects
+  investigations; the mutation endpoint requires `application/json`; local and graph
+  divergence tools now expose the same full-points chart contract. Chart formatting
+  distinguishes currency metrics from counts and handles identical/zero series.
 - **Warehouse proof** — Finance vs Executive weekly revenue: **15.06% mean /
   19.89% max divergence, first divergence 2022-12-26**, executed live.
 - **Write-back is real** — approved proposals executed in GMS: canonical/divergent

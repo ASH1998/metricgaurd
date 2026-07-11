@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from metricguard.config import settings
 
@@ -56,7 +57,15 @@ class AgentRunStore:
 
     def save(self, run: AgentRun) -> Path:
         path = self._path(run.id)
-        path.write_text(run.model_dump_json(indent=2))
+        temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+        try:
+            with temporary.open("w") as handle:
+                handle.write(run.model_dump_json(indent=2))
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, path)
+        finally:
+            temporary.unlink(missing_ok=True)
         return path
 
     def start(self, goal: str, model: str) -> AgentRun:
@@ -68,13 +77,18 @@ class AgentRunStore:
         path = self._path(run_id)
         if not path.exists():
             return None
-        return AgentRun.model_validate(json.loads(path.read_text()))
+        try:
+            return AgentRun.model_validate(json.loads(path.read_text()))
+        except (OSError, json.JSONDecodeError, ValidationError):
+            return None
 
     def list(self) -> list[AgentRun]:
-        runs = [
-            AgentRun.model_validate(json.loads(path.read_text()))
-            for path in self.directory.glob("*.json")
-        ]
+        runs: list[AgentRun] = []
+        for path in self.directory.glob("*.json"):
+            try:
+                runs.append(AgentRun.model_validate(json.loads(path.read_text())))
+            except (OSError, json.JSONDecodeError, ValidationError):
+                continue
         return sorted(runs, key=lambda run: run.started_at, reverse=True)
 
     def record_tool(

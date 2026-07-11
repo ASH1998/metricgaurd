@@ -114,6 +114,7 @@ def tool_run_divergence(sql_a: str, sql_b: str, key_col: str, value_col: str,
         "mean_pct_divergence": report.mean_pct_divergence,
         "max_pct_divergence": report.max_pct_divergence,
         "first_divergence_key": report.first_divergence_key,
+        "points": [point.model_dump(mode="json") for point in report.points],
         "largest_divergence_points": [point.model_dump(mode="json") for point in largest],
         "segment_localization": report.segment_localization,
     }, indent=2)

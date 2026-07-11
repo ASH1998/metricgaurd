@@ -7,7 +7,7 @@ from starlette.testclient import TestClient
 from metricguard.agent.runs import AgentRun, AgentRunStore, RunStatus, ToolTrace
 from metricguard.ui.contracts import build_mission_control_run
 from metricguard.ui import server
-from metricguard.ui.server import create_app, export_run
+from metricguard.ui.server import create_app, dashboard_html, export_run
 
 
 def _run() -> AgentRun:
@@ -111,6 +111,32 @@ def test_api_starts_an_investigation_without_bypassing_run_store(monkeypatch, tm
     assert store.get(run_id).goal.startswith("Investigate conflicting")
 
 
+def test_investigation_api_is_disabled_in_replay_mode(tmp_path: Path):
+    store = AgentRunStore(tmp_path / "runs")
+    client = TestClient(create_app(store, replay_mode=True))
+
+    response = client.post(
+        "/api/investigations",
+        json={"goal": "Investigate conflicting weekly revenue definitions"},
+    )
+
+    assert response.status_code == 403
+    assert store.list() == []
+
+
+def test_investigation_api_requires_json_content_type(tmp_path: Path):
+    store = AgentRunStore(tmp_path / "runs")
+    client = TestClient(create_app(store))
+
+    response = client.post(
+        "/api/investigations",
+        content='{"goal":"Investigate conflicting weekly revenue definitions"}',
+    )
+
+    assert response.status_code == 415
+    assert store.list() == []
+
+
 def test_export_is_a_zero_backend_snapshot(tmp_path: Path):
     index_path = export_run(_run(), tmp_path / "site")
 
@@ -120,3 +146,13 @@ def test_export_is_a_zero_backend_snapshot(tmp_path: Path):
     run_index = json.loads((tmp_path / "site/data/index.json").read_text())
     assert exported["divergence"]["mean_pct_divergence"] == 15.0
     assert run_index["preferred_run_id"] == "golden-ui"
+
+
+def test_frontend_keeps_sse_reconnect_and_handles_units_and_flat_series():
+    html = dashboard_html().read_text()
+
+    assert "S.stream.onerror=()=>text('mode','Reconnecting…')" in html
+    assert "S.stream.onerror=()=>S.stream.close()" not in html
+    assert "const formatterFor=" in html
+    assert "rawHi===rawLo" in html
+    assert "const money=" not in html

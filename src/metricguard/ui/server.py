@@ -57,6 +57,9 @@ def create_app(
             while True:
                 run = run_store.get(run_id)
                 if run is None:
+                    if run_store.path_for(run_id).exists():
+                        await asyncio.sleep(0.1)
+                        continue
                     yield _sse("error", {"error": "run not found"})
                     return
                 contract = build_mission_control_run(run)
@@ -76,9 +79,20 @@ def create_app(
         })
 
     async def start_investigation(request: Request) -> JSONResponse:
+        if replay_mode:
+            return JSONResponse(
+                {"error": "replay mode does not accept investigations"},
+                status_code=403,
+            )
+        content_type = request.headers.get("content-type", "").partition(";")[0].strip().lower()
+        if content_type != "application/json":
+            return JSONResponse(
+                {"error": "content-type must be application/json"},
+                status_code=415,
+            )
         try:
             payload = await request.json()
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, UnicodeDecodeError):
             return JSONResponse({"error": "request body must be JSON"}, status_code=400)
         goal = str(payload.get("goal", "")).strip() if isinstance(payload, dict) else ""
         if len(goal) < 10:

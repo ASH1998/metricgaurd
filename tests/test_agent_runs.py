@@ -1,3 +1,5 @@
+import json
+
 from metricguard.agent.runs import AgentRunStore, RunStatus
 
 
@@ -36,3 +38,35 @@ def test_run_store_exposes_stable_trace_path(tmp_path):
     store = AgentRunStore(directory=tmp_path)
     run = store.start("Trace me", "test:model")
     assert store.path_for(run.id) == tmp_path / f"{run.id}.json"
+
+
+def test_run_store_uses_atomic_replace_and_leaves_no_temporary_file(monkeypatch, tmp_path):
+    store = AgentRunStore(directory=tmp_path)
+    replacements = []
+
+    from metricguard.agent import runs
+
+    real_replace = runs.os.replace
+
+    def record_replace(source, destination):
+        assert source.exists()
+        replacements.append((source, destination))
+        real_replace(source, destination)
+
+    monkeypatch.setattr(runs.os, "replace", record_replace)
+    run = store.start("Write atomically", "test:model")
+
+    assert replacements[0][1] == store.path_for(run.id)
+    assert not list(tmp_path.glob("*.tmp"))
+    assert store.get(run.id) == run
+
+
+def test_run_store_tolerates_incomplete_and_invalid_files(tmp_path):
+    store = AgentRunStore(directory=tmp_path)
+    valid = store.start("Keep valid run", "test:model")
+    (tmp_path / "partial.json").write_text('{"id": "partial"')
+    (tmp_path / "invalid.json").write_text(json.dumps({"id": "invalid"}))
+
+    assert store.get("partial") is None
+    assert store.get("invalid") is None
+    assert [run.id for run in store.list()] == [valid.id]
