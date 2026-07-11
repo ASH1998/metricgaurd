@@ -2,9 +2,10 @@
 
 Reads connection details from .env (DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD
 /DB_SCHEMA) — the password is never hardcoded here. Idempotent: drops and
-recreates each table, then COPYs the CSV in.
+recreates each table, then COPYs the CSV in. Reads plain `.csv` or the
+committed `.csv.gz` transparently.
 
-    .venv/bin/python scripts/load_fiction_retail.py [--data-dir data/archive]
+    .venv/bin/python scripts/load_fiction_retail.py [--data-dir data/fiction_retail]
 
 After this, run DataHub ingestion against the target schema so the tables are
 cataloged (see README / the datahub source recipe).
@@ -13,6 +14,7 @@ cataloged (see README / the datahub source recipe).
 from __future__ import annotations
 
 import argparse
+import gzip
 import sys
 from pathlib import Path
 
@@ -97,8 +99,9 @@ def load(data_dir: Path, env: dict[str, str | None]) -> None:
             cur.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema}"')
             for name in LOAD_ORDER:
                 csv_path = data_dir / f"{name}.csv"
-                if not csv_path.exists():
-                    print(f"  ! skip {name}: {csv_path} not found")
+                gz_path = data_dir / f"{name}.csv.gz"
+                if not csv_path.exists() and not gz_path.exists():
+                    print(f"  ! skip {name}: {csv_path}(.gz) not found")
                     continue
                 cols = TABLES[name]
                 coldefs = ", ".join(f'"{c}" {t}' for c, t in cols)
@@ -110,7 +113,12 @@ def load(data_dir: Path, env: dict[str, str | None]) -> None:
                     f'COPY "{schema}"."{name}" ({collist}) '
                     f"FROM STDIN WITH (FORMAT csv, HEADER true, NULL '')"
                 )
-                with open(csv_path, "rb") as fh, cur.copy(copy_sql) as copy:
+                opener = (
+                    (lambda: gzip.open(gz_path, "rb"))
+                    if not csv_path.exists()
+                    else (lambda: open(csv_path, "rb"))
+                )
+                with opener() as fh, cur.copy(copy_sql) as copy:
                     while chunk := fh.read(1 << 20):
                         copy.write(chunk)
                 cur.execute(f'SELECT count(*) FROM "{schema}"."{name}"')
@@ -121,7 +129,7 @@ def load(data_dir: Path, env: dict[str, str | None]) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--data-dir", default="data/archive", type=Path)
+    ap.add_argument("--data-dir", default="data/fiction_retail", type=Path)
     ap.add_argument("--env", default=".env", type=Path)
     args = ap.parse_args()
     env = dotenv_values(args.env)

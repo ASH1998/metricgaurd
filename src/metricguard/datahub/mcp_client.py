@@ -29,7 +29,7 @@ from metricguard.config import settings
 from metricguard.datahub.base import DataHubClient, WriteAction
 
 # our capability -> tool name on the DataHub MCP server.
-# VERIFIED against the live server (DataHub Core v1.5.0.6) on 2026-07-05 via
+# VERIFIED against the live server (DataHub Core v1.5.0.6) via
 # `metricguard datahub tools` + a direct probe. These are the real names, not guesses.
 _CAPABILITIES: dict[str, list[str]] = {
     # read side

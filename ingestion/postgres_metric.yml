@@ -1,0 +1,25 @@
+# Catalog the demo warehouse's `metric` schema into DataHub as postgres.metric.*
+# (the URN convention simulate_org.py's lineage points at).
+#
+#   uv run datahub ingest -c ingestion/postgres_metric.yml
+#
+# DB_* and DATAHUB_* come from the environment (setup_demo.sh exports .env).
+source:
+  type: postgres
+  config:
+    host_port: "${DB_HOST}:${DB_PORT}"
+    database: "${DB_NAME}"
+    username: "${DB_USER}"
+    password: "${DB_PASSWORD}"
+    schema_pattern:
+      allow: ["metric"]
+    include_tables: true
+    include_views: false
+    profiling:
+      enabled: false
+
+sink:
+  type: datahub-rest
+  config:
+    server: "${DATAHUB_GMS_URL}"
+    token: "${DATAHUB_TOKEN}"

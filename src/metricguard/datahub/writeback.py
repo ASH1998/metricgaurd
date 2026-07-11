@@ -2,7 +2,7 @@
 
 Given a human/LLM decision about which candidate is canonical, these pure
 functions produce `Proposal`s whose `payload` matches the DataHub MCP mutation
-tools EXACTLY (arg names verified against the live server 2026-07-05). Nothing
+tools EXACTLY (arg names verified against the live server). Nothing
 here mutates DataHub — proposals are staged; a human executes them via
 `metricguard proposals approve`, the single approval choke point.
 
