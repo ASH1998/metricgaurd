@@ -208,6 +208,10 @@ def divergence(
     key_col: str = typer.Option("week_start", help="Join key column (the time bucket)"),
     value_col: str = typer.Option(..., help="The metric value column"),
     limit: int = typer.Option(12, help="Show at most this many diverging points"),
+    segment_col: str = typer.Option(
+        "", "--segment-col",
+        help="Column present in both results — localizes where the gap concentrates",
+    ),
 ):
     """Execute two definitions against the warehouse and quantify the gap."""
     from metricguard.divergence.engine import compute_divergence
@@ -224,13 +228,24 @@ def divergence(
         executor.query(sql_a.read_text()), executor.query(sql_b.read_text()),
         key_col=key_col, value_col=value_col,
         left_name=sql_a.stem, right_name=sql_b.stem,
+        segment_col=segment_col or None,
     )
 
     headline = (f"mean divergence [bold]{report.mean_pct_divergence}%[/bold] · "
                 f"max [bold]{report.max_pct_divergence}%[/bold]")
     if report.first_divergence_key:
         headline += f" · diverging since [bold]{report.first_divergence_key}[/bold]"
+    headline += (f"\ncumulative gap [bold]{report.total_abs_divergence:,.0f}[/bold] "
+                 f"({value_col}) across {len(report.points)} periods")
     console.print(Panel(headline, title=f"{report.left_name} vs {report.right_name}"))
+
+    if report.segment_localization:
+        seg_table = Table(title="where the gap concentrates")
+        seg_table.add_column("segment")
+        seg_table.add_column("share of total gap", justify="right")
+        for seg, share in report.segment_localization.items():
+            seg_table.add_row(seg, f"{share}%")
+        console.print(seg_table)
 
     diverging = [p for p in report.points if p.abs_divergence > 0]
     table = Table(title=f"largest gaps (of {len(diverging)} diverging periods)")
@@ -362,10 +377,21 @@ def proposals_show(proposal_id: str):
 
 
 @proposals_app.command("approve")
-def proposals_approve(proposal_id: str):
-    """HUMAN APPROVAL: execute a staged proposal against DataHub."""
+def proposals_approve(
+    proposal_id: str,
+    skip_verification: bool = typer.Option(
+        False, "--skip-verification",
+        help="Execute even if the staged evidence cannot be re-verified (human override)",
+    ),
+):
+    """HUMAN APPROVAL: execute a staged proposal against DataHub.
+
+    Before writing, the staged evidence is re-proven: the canonical SQL is
+    re-read from DataHub and its semantic signature must still equal the
+    staging-time snapshot. Stale evidence blocks the write.
+    """
     from metricguard.datahub.base import get_datahub_client
-    from metricguard.datahub.proposals import ProposalStore
+    from metricguard.datahub.proposals import ProposalStore, StaleEvidenceError
 
     store = ProposalStore()
     proposal = store.get(proposal_id)
@@ -378,8 +404,25 @@ def proposals_approve(proposal_id: str):
         console.print("[dim]Aborted — proposal left pending.[/dim]")
         raise typer.Exit(code=1)
 
+    client = get_datahub_client()
+    if skip_verification:
+        console.print("[yellow]Evidence re-verification skipped by --skip-verification.[/yellow]")
+    else:
+        try:
+            state = store.verify_evidence(proposal, client)
+        except StaleEvidenceError as e:
+            console.print(
+                f"[bold red]✗ Evidence is stale — proposal left pending.[/bold red]\n{e}\n"
+                "[dim]Re-investigate, or override with --skip-verification.[/dim]"
+            )
+            raise typer.Exit(code=1)
+        if state == "verified":
+            console.print("[green]✔ Evidence re-verified against DataHub's current state.[/green]")
+        else:
+            console.print("[dim]No evidence snapshot on this proposal — nothing to re-verify.[/dim]")
+
     try:
-        executed = store.approve(proposal_id, get_datahub_client())
+        executed = store.approve(proposal_id, client, verify=False)  # verified above
     except Exception as e:  # write failed — proposal stays pending, report loudly
         console.print(f"[red]✗ Write failed — proposal left pending.[/red]\n{e}")
         raise typer.Exit(code=1)
@@ -419,6 +462,121 @@ def datahub_tools():
     for t in get_mcp_client().describe_tools():
         table.add_row(t["name"], t["description"])
     console.print(table)
+
+
+# ---------------------------------------------------------------------------
+# doctor — environment diagnosis with exact fixes (judge-proofing)
+# ---------------------------------------------------------------------------
+
+_PROVIDER_KEY_ENV = {
+    "anthropic": "ANTHROPIC_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "google_genai": "GOOGLE_API_KEY",
+    "mistralai": "MISTRAL_API_KEY",
+    "groq": "GROQ_API_KEY",
+}
+
+
+def _llm_key_env(llm_model: str) -> str | None:
+    """Map a LangChain provider-prefixed model string to its API-key env var."""
+    provider = llm_model.split(":", 1)[0].strip().lower() if ":" in llm_model else ""
+    return _PROVIDER_KEY_ENV.get(provider)
+
+
+@app.command()
+def doctor():
+    """Check the environment: warehouse, DataHub, MCP, LLM key, local stores.
+
+    Every failure comes with its exact fix. Exit 0 = healthy enough to demo,
+    1 = something you configured is broken. Unconfigured optional pieces are
+    reported as skipped, not failures — the deterministic core needs nothing.
+    """
+    import os
+
+    rows: list[tuple[str, str, str, str]] = []  # component, status, detail, fix
+
+    # -- warehouse -----------------------------------------------------------
+    if not settings.postgres_dsn:
+        rows.append(("warehouse", "skip", "POSTGRES_DSN not set",
+                     "set POSTGRES_DSN in .env — needed only for executed divergence proofs"))
+    else:
+        try:
+            from metricguard.execution.base import get_executor
+            get_executor().query("SELECT 1 AS ok")
+            rows.append(("warehouse", "ok", "SELECT 1 succeeded", ""))
+        except Exception as e:  # noqa: BLE001 — any failure is the diagnosis
+            rows.append(("warehouse", "fail", str(e).strip().splitlines()[0],
+                         "check POSTGRES_DSN and `uv sync --extra warehouse`"))
+
+    # -- DataHub GMS + MCP ----------------------------------------------------
+    datahub_configured = bool(settings.datahub_mcp_transport or settings.datahub_token)
+    if not datahub_configured:
+        rows.append(("datahub gms", "skip", "no DATAHUB_TOKEN / DATAHUB_MCP_TRANSPORT",
+                     "set DATAHUB_MCP_TRANSPORT=stdio for graph discovery, sentinel, write-back"))
+    else:
+        import urllib.request
+        try:
+            request = urllib.request.Request(f"{settings.datahub_gms_url.rstrip('/')}/config")
+            if settings.datahub_token:
+                request.add_header("Authorization", f"Bearer {settings.datahub_token}")
+            with urllib.request.urlopen(request, timeout=6) as response:
+                rows.append(("datahub gms", "ok",
+                             f"{settings.datahub_gms_url} -> HTTP {response.status}", ""))
+        except Exception as e:  # noqa: BLE001
+            rows.append(("datahub gms", "fail", str(e).strip().splitlines()[0],
+                         "check DATAHUB_GMS_URL (tunnel up? frontend proxies GMS at /api/gms) "
+                         "and DATAHUB_TOKEN"))
+
+    if not settings.datahub_mcp_transport:
+        rows.append(("datahub mcp", "skip", "DATAHUB_MCP_TRANSPORT not set",
+                     "set to `stdio` (runs DATAHUB_MCP_COMMAND) or `http` + DATAHUB_MCP_URL"))
+    else:
+        try:
+            from metricguard.datahub.mcp_client import get_mcp_client
+            tool_count = len(get_mcp_client().describe_tools())
+            rows.append(("datahub mcp", "ok",
+                         f"{tool_count} tools via {settings.datahub_mcp_transport}", ""))
+        except Exception as e:  # noqa: BLE001
+            rows.append(("datahub mcp", "fail", str(e).strip().splitlines()[0],
+                         "check DATAHUB_MCP_COMMAND/URL; kill orphans: pkill -f mcp-server-datahub"))
+
+    # -- LLM (judgment layer only) -------------------------------------------
+    key_env = _llm_key_env(settings.llm_model)
+    if key_env is None:
+        rows.append(("llm", "warn", f"unknown provider in LLM_MODEL={settings.llm_model!r}",
+                     "use a LangChain provider-prefixed model, e.g. anthropic:claude-opus-4-8"))
+    elif os.getenv(key_env):
+        rows.append(("llm", "ok", f"{settings.llm_model} · {key_env} present", ""))
+    else:
+        rows.append(("llm", "warn", f"{key_env} not set",
+                     f"set {key_env} in .env — needed only for agent, sentinel, discover --explain"))
+
+    # -- local stores ----------------------------------------------------------
+    try:
+        from metricguard.agent.runs import AgentRunStore
+        from metricguard.datahub.proposals import ProposalStatus, ProposalStore
+        pending = len(ProposalStore().list(status=ProposalStatus.PENDING))
+        contracts = len(list(settings.contracts_dir.glob("*.json"))) if settings.contracts_dir.exists() else 0
+        runs = len(AgentRunStore().list())
+        rows.append(("stores", "ok",
+                     f"{contracts} contracts · {pending} pending proposals · {runs} runs "
+                     f"(dialect: {settings.dialect})", ""))
+    except Exception as e:  # noqa: BLE001
+        rows.append(("stores", "fail", str(e).strip().splitlines()[0],
+                     "check .metricguard/ permissions and METRICGUARD_CONTRACTS_DIR"))
+
+    style = {"ok": "green", "fail": "bold red", "skip": "dim", "warn": "yellow"}
+    table = Table(title="metricguard doctor")
+    for column in ("component", "status", "detail", "fix"):
+        table.add_column(column, overflow="fold")
+    for component, status, detail, fix in rows:
+        table.add_row(component, f"[{style[status]}]{status}[/{style[status]}]", detail, fix)
+    console.print(table)
+
+    if any(status == "fail" for _, status, _, _ in rows):
+        console.print("[red]Something configured is broken — fixes above.[/red]")
+        raise typer.Exit(code=1)
+    console.print("[green]Healthy.[/green] Skipped rows are optional features, not problems.")
 
 
 # ---------------------------------------------------------------------------

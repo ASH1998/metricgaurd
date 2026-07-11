@@ -190,6 +190,7 @@ def _find_divergences(traces: list[ToolTrace]) -> list[DivergenceReport]:
                 points=[DivergencePoint.model_validate(point) for point in parsed["points"]],
                 mean_pct_divergence=float(parsed.get("mean_pct_divergence", 0)),
                 max_pct_divergence=float(parsed.get("max_pct_divergence", 0)),
+                total_abs_divergence=float(parsed.get("total_abs_divergence", 0)),
                 first_divergence_key=parsed.get("first_divergence_key"),
                 segment_localization=parsed.get("segment_localization", {}),
             ))

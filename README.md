@@ -60,6 +60,9 @@ cp .env.example .env         # then fill in what you have
 ## Try it
 
 ```bash
+# check your environment first — every failure comes with its exact fix
+uv run metricguard doctor
+
 # extract a semantic signature from one definition
 uv run metricguard signature seeds/metric_families/weekly_active_users/marketing_wau.sql
 
@@ -158,6 +161,13 @@ Every approved mutation funnels through one gated `DataHubClient.write()` entryp
 that raises unless explicitly approved. The agent's tool belt contains no
 direct mutation tools — its only write power is staging proposals; mutation-
 shaped MCP tools are filtered out before binding.
+
+**The gate re-proves before it writes.** `proposals approve` re-reads the
+canonical SQL from DataHub and re-extracts its semantic signature; if the
+definition changed since the proposal was staged, the write is blocked as
+stale evidence (cosmetic SQL edits still pass — signature equality is the
+check, not text equality). `--skip-verification` is the explicit human
+override.
 
 Every agent run is persisted under `.metricguard/runs/`. See the compact,
 live-verified artifacts in [`examples/`](examples/).

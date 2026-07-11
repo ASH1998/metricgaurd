@@ -132,6 +132,8 @@ class DivergenceReport(BaseModel):
     points: list[DivergencePoint] = Field(default_factory=list)
     mean_pct_divergence: float = 0.0
     max_pct_divergence: float = 0.0
+    # Cumulative absolute gap across all periods — the "$X of disagreement" number.
+    total_abs_divergence: float = 0.0
     first_divergence_key: str | None = None
     # Optional: where the gap concentrates, e.g. {"platform=mobile-web": 71.2}
     segment_localization: dict[str, float] = Field(default_factory=dict)

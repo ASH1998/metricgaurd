@@ -3,7 +3,13 @@
 import pytest
 
 from metricguard.datahub.base import ApprovalRequiredError, StubDataHubClient
-from metricguard.datahub.proposals import Proposal, ProposalStatus, ProposalStore
+from metricguard.datahub.proposals import (
+    Proposal,
+    ProposalStatus,
+    ProposalStore,
+    StaleEvidenceError,
+)
+from metricguard.signature.extractor import extract_signature
 
 
 @pytest.fixture()
@@ -59,3 +65,107 @@ def test_reject_keeps_audit_trail(store):
     store.reject(p.id)
     assert store.get(p.id).status == ProposalStatus.REJECTED
     assert store.list(status=ProposalStatus.PENDING) == []
+
+
+# ---------------------------------------------------------------------------
+# Approval-time evidence re-verification — the gate re-proves before it writes.
+# ---------------------------------------------------------------------------
+
+_DATASET = "urn:li:dataset:(urn:li:dataPlatform:dbt,marts.finance.weekly_revenue,PROD)"
+_QUERY = "urn:li:query:mg_finance_weekly_revenue"
+
+_CANONICAL_SQL = """
+SELECT DATE_TRUNC('week', created_at) AS week_start,
+       SUM(total_amount) AS weekly_revenue
+FROM orders
+WHERE NOT order_status IN ('canceled', 'returned')
+GROUP BY 1
+"""
+
+# Same semantics, different text: casing, alias, formatting.
+_COSMETIC_SQL = """
+select date_trunc('week', created_at) as wk,
+       sum(total_amount) as rev
+from orders
+where not order_status in ('canceled', 'returned')
+group by 1
+"""
+
+# Semantic change: the status filter is gone.
+_CHANGED_SQL = """
+SELECT DATE_TRUNC('week', created_at) AS week_start,
+       SUM(total_amount) AS weekly_revenue
+FROM orders
+GROUP BY 1
+"""
+
+
+def evidence_proposal(staged_sql: str) -> Proposal:
+    return Proposal(
+        metric="weekly_revenue",
+        kind="tag",
+        target=_DATASET,
+        payload={"tag_urns": ["urn:li:tag:metricguard_canonical"], "entity_urns": [_DATASET]},
+        rationale="Warehouse-proven canonical choice.",
+        evidence={
+            "canonical_name": "weekly_revenue",
+            "query_urn": _QUERY,
+            "dataset_urn": _DATASET,
+            "dialect": "postgres",
+            "signature": extract_signature(staged_sql, dialect="postgres").model_dump(mode="json"),
+        },
+    )
+
+
+def client_serving(current_sql: str) -> StubDataHubClient:
+    return StubDataHubClient.from_specs([{
+        "dataset_urn": _DATASET, "query_urn": _QUERY,
+        "name": "finance:weekly_revenue", "sql": current_sql,
+    }])
+
+
+def test_approve_reverifies_unchanged_evidence(store):
+    p = store.stage(evidence_proposal(_CANONICAL_SQL))
+    client = client_serving(_CANONICAL_SQL)
+    assert store.verify_evidence(p, client) == "verified"
+    assert store.approve(p.id, client).status == ProposalStatus.EXECUTED
+
+
+def test_cosmetic_edit_still_approves(store):
+    """Signature equality is the check, not text equality."""
+    p = store.stage(evidence_proposal(_CANONICAL_SQL))
+    client = client_serving(_COSMETIC_SQL)
+    assert store.verify_evidence(p, client) == "verified"
+    assert store.approve(p.id, client).status == ProposalStatus.EXECUTED
+
+
+def test_semantic_change_blocks_approval(store):
+    p = store.stage(evidence_proposal(_CANONICAL_SQL))
+    client = client_serving(_CHANGED_SQL)
+    with pytest.raises(StaleEvidenceError, match="filters"):
+        store.approve(p.id, client)
+    # nothing was written; the proposal stays pending for re-investigation
+    assert client.write_log == []
+    assert store.get(p.id).status == ProposalStatus.PENDING
+
+
+def test_deleted_definition_blocks_approval(store):
+    p = store.stage(evidence_proposal(_CANONICAL_SQL))
+    client = StubDataHubClient()  # the query no longer exists in DataHub
+    with pytest.raises(StaleEvidenceError, match="re-read"):
+        store.approve(p.id, client)
+    assert store.get(p.id).status == ProposalStatus.PENDING
+
+
+def test_legacy_proposal_without_evidence_skips_verification(store):
+    p = store.stage(make_proposal())  # no evidence snapshot
+    client = StubDataHubClient()
+    assert store.verify_evidence(p, client) == "unverified"
+    assert store.approve(p.id, client).status == ProposalStatus.EXECUTED
+
+
+def test_skip_verification_flag_path(store):
+    """approve(verify=False) is the explicit human override the CLI exposes."""
+    p = store.stage(evidence_proposal(_CANONICAL_SQL))
+    client = client_serving(_CHANGED_SQL)
+    assert store.approve(p.id, client, verify=False).status == ProposalStatus.EXECUTED

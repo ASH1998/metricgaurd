@@ -164,4 +164,18 @@ def build_canonical_writeback(
         proposals.append(_tag(metric, d.dataset_urn, DIVERGENT_TAG,
                               f"Diverges from the canonical definition of '{metric}'."))
         proposals.append(_description_redirect(metric, d, canonical))
+
+    # Deterministic evidence snapshot: every proposal in the set asserts the
+    # canonical truth, so each carries the canonical's staging-time signature.
+    # `proposals approve` re-proves it against DataHub before writing.
+    if canonical.query_urn and canonical.signature is not None:
+        evidence = {
+            "canonical_name": canonical.name,
+            "query_urn": canonical.query_urn,
+            "dataset_urn": canonical.dataset_urn,
+            "dialect": canonical.dialect,
+            "signature": canonical.signature.model_dump(mode="json"),
+        }
+        for p in proposals:
+            p.evidence = evidence
     return proposals

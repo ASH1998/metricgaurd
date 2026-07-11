@@ -15,9 +15,10 @@ uv run pytest                    # full test suite
 uv run pytest tests/test_signature_extraction.py -k cosmetic   # single test
 uv run ruff check src tests      # lint
 uv run metricguard --help        # CLI: signature, compare, discover, guard, agent, sentinel, ui
+uv run metricguard doctor        # environment diagnosis — every failure states its exact fix
 ```
 
-CLI commands that work with zero config: `signature`, `compare`, `discover`, `guard approve/check`, `proposals list/show/approve/reject`. Commands needing config: `discover --explain`, `agent`, and sentinel investigations (LLM_MODEL + provider API key), `divergence` (POSTGRES_DSN), plus `sentinel`, `datahub tools`, and MCP-backed discovery (DATAHUB_MCP_TRANSPORT). `guard check` exit codes are contractual: 0 ok, 1 drift, 2 no contract — CI depends on them.
+CLI commands that work with zero config: `signature`, `compare`, `discover`, `doctor`, `guard approve/check`, `proposals list/show/approve/reject`. `proposals approve` re-verifies staged evidence against DataHub's current state before writing (`--skip-verification` overrides). Commands needing config: `discover --explain`, `agent`, and sentinel investigations (LLM_MODEL + provider API key), `divergence` (POSTGRES_DSN), plus `sentinel`, `datahub tools`, and MCP-backed discovery (DATAHUB_MCP_TRANSPORT). `guard check` exit codes are contractual: 0 ok, 1 drift, 2 no contract — CI depends on them.
 
 The demo warehouse is live: fiction-retail data (~695k rows, 10 tables) in the `metric` schema on RDS, cataloged in DataHub as `postgres.metric.*`. The `weekly_revenue` seed family executes against it (the WAU family's `events` table is signature-only, it has no backing data). One-time reload: `scripts/load_fiction_retail.py`.
 

@@ -54,6 +54,25 @@ Goal: a judge-grade environment that cannot embarrass us.
       "signature incomplete: <construct>" outcome — never a silent misread.
       Matters for the live-judging moment when someone pastes arbitrary SQL.
 
+### Software depth — quick wins (added Jul 12)
+
+- [x] **Approval-time re-verification** — `proposals approve` re-reads the
+      canonical SQL from DataHub, re-extracts its signature, and blocks with
+      "evidence stale" if the definition changed since staging (cosmetic edits
+      still pass — signature equality is the check, not text equality).
+      `--skip-verification` is the explicit human override. The gate re-proves
+      before it writes.
+- [x] **Cumulative gap impact** — `DivergenceReport.total_abs_divergence`:
+      the one number every judge remembers ("these definitions disagreed by
+      $X across N weeks"). Surfaced in the CLI headline, agent tool output,
+      and a Mission Control stat card.
+- [x] **`metricguard doctor`** — judge-proofing: one command that checks
+      warehouse, DataHub GMS, MCP handshake, LLM key, and local stores, and
+      prints the exact fix for each failure.
+- [x] **Segment localization exposed** — `divergence --segment-col` wires the
+      already-built gap-concentration math ("87% of the gap is in
+      order_status=canceled") into the CLI.
+
 Milestone: fresh clone → `make demo` → agent resolves weekly_revenue, ignores
 the decoys — on a machine we've never touched.
 
@@ -130,6 +149,27 @@ preferred sentinel and demo path once its focused operations are verified.
 - [ ] Separate pair selection, evidence-sufficiency assessment, and terminal
       decision into legible trace events. The first sentinel slice still hands
       material changes to the composed investigation path.
+
+### Software depth — the big swings (added Jul 12)
+
+- [ ] **Semantic ablation (gap attribution)** — the week-2 technical
+      centerpiece: given a signature diff, generate intermediate SQL variants
+      (sqlglot) that toggle one differing dimension at a time, execute the
+      ladder, and attribute the divergence per dimension — "13.07% total:
+      9.8pts from the order_status filter, 3.2pts from the amount formula."
+      Turns "they disagree" into a causal decomposition with dollar values.
+      Scope: filters + aggregation on the seeded families only. Pure
+      deterministic math. **Cut without regret if not demoable by Jul 25.**
+- [ ] **Blast radius quantification** — lineage becomes load-bearing, not
+      decorative: count affected downstream datasets/dashboards/owners/domains
+      per conflicting definition; use it to (a) rank what sentinel
+      investigates first, (b) emit the "chose this pair for largest downstream
+      blast radius" trace event, (c) put the number in the decision document
+      written back to DataHub.
+- [ ] **Guard break → SQL construct** — when `guard check` fails, point at the
+      offending construct via sqlglot node positions ("added predicate
+      `status='shipped'` breaks the canonical filter set"). Pairs with the
+      planned GitHub Action.
 
 ### Sentinel mode (`metricguard sentinel`) — the standing agent
 

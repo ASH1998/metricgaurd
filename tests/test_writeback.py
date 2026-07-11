@@ -82,6 +82,28 @@ def test_full_set_includes_structured_property_when_signature_present():
     assert kinds == ["document", "structured_property", "tag", "tag", "description"]
 
 
+def test_evidence_snapshot_stamped_on_all_proposals():
+    """Every proposal in a resolution carries the canonical's staging-time
+    signature so `proposals approve` can re-prove it against DataHub."""
+    canonical, divergent = _defs()
+    canonical.signature = SemanticSignature(
+        aggregation=Aggregation(function="SUM", argument="total_amount"),
+        entity="total_amount", grain="week",
+        source_population=["metric.orders"],
+    )
+    for p in build_canonical_writeback("weekly_revenue", canonical, divergent):
+        assert p.evidence["query_urn"] == canonical.query_urn
+        assert p.evidence["dataset_urn"] == canonical.dataset_urn
+        assert p.evidence["signature"]["grain"] == "week"
+
+
+def test_no_evidence_snapshot_without_signature():
+    """No signature at staging time -> nothing to re-verify later (honest gap)."""
+    canonical, divergent = _defs()  # signature is None
+    for p in build_canonical_writeback("weekly_revenue", canonical, divergent):
+        assert p.evidence == {}
+
+
 def test_decision_document_preserves_agent_evidence_for_datahub():
     canonical, divergent = _defs()
     (document, *_) = build_canonical_writeback(

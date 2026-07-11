@@ -15,6 +15,7 @@ def test_divergence_basic():
                                 value_col="weekly_active_users")
     assert report.first_divergence_key == "2026-05-11"
     assert report.max_pct_divergence == 18.0
+    assert report.total_abs_divergence == 28.0  # 0 + 18 + 10 — the cumulative gap
     by_key = {p.key: p for p in report.points}
     assert by_key["2026-05-04"].pct_divergence == 0.0
     assert by_key["2026-05-18"].abs_divergence == 10.0

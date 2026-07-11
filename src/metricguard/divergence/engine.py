@@ -50,6 +50,7 @@ def compute_divergence(
         points=points,
         mean_pct_divergence=round(sum(p.pct_divergence for p in points) / len(points), 2) if points else 0.0,
         max_pct_divergence=max((p.pct_divergence for p in points), default=0.0),
+        total_abs_divergence=round(sum(p.abs_divergence for p in points), 2),
         first_divergence_key=diverging[0].key if diverging else None,
     )
 

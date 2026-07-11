@@ -68,6 +68,26 @@ live infrastructure or locally:
   tags, decision document with numeric evidence, description redirects, and the
   canonical SemanticSignature as governed structured properties. All mutations
   pass through the single `DataHubClient.write()` approval gate.
+- **The gate re-proves before it writes (2026-07-12)** — resolution proposals now
+  carry a deterministic evidence snapshot (canonical query urn + staging-time
+  SemanticSignature); `proposals approve` re-reads the current SQL from DataHub,
+  re-extracts the signature, and blocks with `StaleEvidenceError` if the
+  definition semantically changed (or vanished) since staging. Cosmetic edits
+  still pass — signature equality is the check, not text equality.
+  `--skip-verification` is the explicit human override; legacy proposals without
+  a snapshot approve with an "unverified" note. Locally verified with stub
+  clients (6 new tests).
+- **Impact numbers + judge-proofing (2026-07-12)** —
+  `DivergenceReport.total_abs_divergence`: the cumulative gap, live-verified —
+  **Finance vs Executive weekly revenue disagree by $28.9M across 71 weeks**.
+  Surfaced in the CLI headline, agent tool JSON, UI contract, and a fifth
+  Mission Control stat card (currency-aware, with a client-side fallback sum for
+  runs recorded before the field existed; browser-verified on both a count
+  metric, 34.7K, and a currency metric, $28.9M). `divergence --segment-col`
+  exposes the existing gap-concentration math in the CLI. `metricguard doctor`
+  checks warehouse, DataHub GMS, MCP handshake, LLM key, and local stores, and
+  prints the exact fix per failure — all five checks verified green against the
+  live environment.
 - **DataHub-backed Guard** — `guard datahub-check` rehydrates the approved
   signature from governed properties. Live: canonical SQL exits 0; unfiltered
   Executive query exits 1 with `filters` as the break.
@@ -118,5 +138,13 @@ The current UI is the operational foundation, not the finished feature. Next:
 - finish the refusal scenario, decision-legibility traces, and Guard PR workflow.
 - live-verify sentinel against an ingested rogue Query entity, then decompose the
   composed investigation into narrower, change-scoped agent decisions.
+- the week-2 big swings (see plan): semantic ablation (per-dimension gap
+  attribution), blast-radius quantification from lineage, guard break → SQL
+  construct localization.
+- ⚠️ reconcile recorded divergence numbers before the video: docs/examples say
+  weekly_revenue is 15.06% mean / 19.89% max, but the live warehouse today gives
+  **13.07% / 16.59%** (same first-divergence date) — the data moved after the
+  numbers were recorded. Freeze the warehouse, then refresh `examples/`,
+  README, and this file together.
 
 The ordered plan lives in `MetricGuard_3Week_Plan.md`.
