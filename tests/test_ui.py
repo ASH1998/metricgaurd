@@ -6,6 +6,7 @@ from starlette.testclient import TestClient
 
 from metricguard.agent.runs import AgentRun, AgentRunStore, RunStatus, ToolTrace
 from metricguard.ui.contracts import build_mission_control_run
+from metricguard.ui import server
 from metricguard.ui.server import create_app, export_run
 
 
@@ -81,6 +82,7 @@ def test_api_lists_and_returns_frozen_contract(tmp_path: Path):
     detail = client.get("/api/runs/golden-ui")
 
     assert index.status_code == 200
+    assert index.json()["mode"] == "live"
     assert index.json()["preferred_run_id"] == "golden-ui"
     assert index.json()["runs"][0]["has_divergence"] is True
     assert detail.status_code == 200
@@ -88,11 +90,32 @@ def test_api_lists_and_returns_frozen_contract(tmp_path: Path):
     assert client.get("/api/runs/missing").status_code == 404
 
 
+def test_api_starts_an_investigation_without_bypassing_run_store(monkeypatch, tmp_path: Path):
+    store = AgentRunStore(tmp_path / "runs")
+
+    async def finish(goal, run_store, run):
+        run_store.complete(run, f"Investigated: {goal}")
+
+    monkeypatch.setattr(server, "_run_investigation", finish)
+    with TestClient(create_app(store)) as client:
+        invalid = client.post("/api/investigations", json={"goal": "short"})
+        started = client.post(
+            "/api/investigations",
+            json={"goal": "Investigate conflicting weekly revenue definitions"},
+        )
+
+    assert invalid.status_code == 422
+    assert started.status_code == 202
+    run_id = started.json()["run"]["id"]
+    assert store.get(run_id) is not None
+    assert store.get(run_id).goal.startswith("Investigate conflicting")
+
+
 def test_export_is_a_zero_backend_snapshot(tmp_path: Path):
     index_path = export_run(_run(), tmp_path / "site")
 
     assert index_path.exists()
-    assert "MetricGuard Mission Control" in index_path.read_text()
+    assert "New investigation" in index_path.read_text()
     exported = json.loads((tmp_path / "site/data/golden-ui.json").read_text())
     run_index = json.loads((tmp_path / "site/data/index.json").read_text())
     assert exported["divergence"]["mean_pct_divergence"] == 15.0

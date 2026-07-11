@@ -85,10 +85,16 @@ class AgentExecution:
     trace_path: Path
 
 
-async def arun_agent_result(goal: str, verbose: bool = True) -> AgentExecution:
+async def arun_agent_result(
+    goal: str,
+    verbose: bool = True,
+    *,
+    store: AgentRunStore | None = None,
+    run: AgentRun | None = None,
+) -> AgentExecution:
     """Run the decision loop and persist a complete tool/action audit trail."""
-    store = AgentRunStore()
-    run = store.start(goal, settings.llm_model)
+    store = store or AgentRunStore()
+    run = run or store.start(goal, settings.llm_model)
 
     try:
         tools = await build_all_tools()

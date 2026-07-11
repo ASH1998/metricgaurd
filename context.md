@@ -37,7 +37,9 @@ Uses entities that exist today — glossary terms, structured properties, docume
 - **One warehouse** (Postgres or Snowflake) + **dbt models** + **seeded dashboard metadata** + **ANSI/Snowflake SQL** only.
 - No Looker / Tableau / Power BI / Databricks. Avoid the integration swamp.
 - Demo clustering only needs to work on our seeded metric families — we control the data.
-- UI: **CLI/terminal** drives; **DataHub UI** shows the write-back.
+- UI: **`metricguard ui`** starts and follows investigations, renders evidence,
+  and hands staged proposals to the human gate. The CLI remains fully supported;
+  **DataHub UI** remains the governed system of record for write-back.
 
 ## Tech stack (working assumption)
 - Python. `sqlglot` for SQL parsing. DataHub Core via docker quickstart. DataHub **MCP Server** for read + write.

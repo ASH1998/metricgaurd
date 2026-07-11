@@ -53,11 +53,13 @@ the decoys — on a machine we've never touched.
 Goal: the agent's judgment is legible, demonstrably non-scripted — and visible
 on a screen that makes people lean in.
 
-### Mission Control (`metricguard ui`) — the demo's face
+### MetricGuard UI (`metricguard ui`) — the operational workspace
 
-A local, read-only web view over artifacts that **already exist** (the durable
-run traces in `.metricguard/runs/`, investigation/divergence reports, the
-proposals dir).
+A local operational UI over the same MetricGuard agent and deterministic core.
+It starts investigations, follows durable run traces in `.metricguard/runs/`,
+renders investigation/divergence evidence, and hands staged proposals to the
+existing human approval gate. It is a real product path, not a separate demo
+runtime or a second implementation of MetricGuard.
 
 **Architecture — the JSON contract is the seam.** The frontend is one static
 page (HTML + inline JS/SVG, no build step, no framework) that consumes only a
@@ -66,9 +68,10 @@ proposal states. Where that JSON comes from is invisible to the page.
 
 **The product is `metricguard ui`, and it works everywhere** — local dev, a
 judge's fresh clone, `make demo`: starlette/uvicorn (now core deps) serving the
-page + `GET /api/runs`, `GET /api/runs/<id>`, SSE `/api/stream/<id>`. Replay
-(`--replay <run-id>`) and live tail are both served this way. The JSON endpoints
-double as an integration API for CI or other agents.
+page + `GET /api/runs`, `GET /api/runs/<id>`, `POST /api/investigations`, and
+SSE `/api/stream/<id>`. Replay (`--replay <run-id>`) and live operation are both
+served this way. The APIs call the existing agent/run stores; they do not bypass
+the deterministic engines or approval choke point.
 
 **github.io is one frozen snapshot, not a channel**: `metricguard ui --export
 <run-id> -o site/` emits the page + the golden run's JSON; deploy that ONCE to
@@ -99,10 +102,10 @@ Four panels, built in this order (later ones are cuttable):
 4. **Approval gate** — proposal cards flip pending → approved → executed.
    Approval itself stays a human action through the existing gated path.
 
-Hard scope rules: read-only over existing JSON; **no npm, no build step, no
-framework** — one HTML file, inline JS/SVG; no LLM calls anywhere in the UI;
-if it threatens week 2, cut panels 4 then 3 — timeline + divergence chart
-alone still carry the demo.
+Hard scope rules: **no npm, no build step, no framework** — one HTML file,
+inline JS/SVG. The browser never calls an LLM directly; it invokes the existing
+MetricGuard agent API, and every governance mutation still passes through the
+approval-gated DataHub client. If scope threatens week 2, cut panels 4 then 3.
 
 ### Agent scenarios (the content Mission Control displays)
 
@@ -169,9 +172,10 @@ Milestone: submission-ready repo; only presentation work remains.
 
 ## What we deliberately do NOT do
 
-- No *product* frontend: Mission Control is a read-only viewer over the audit
-  trail — no auth, no config pages, no editing, no state of its own. DataHub's
-  UI remains where governance lives.
+- No second frontend-only implementation of MetricGuard: the UI is the
+  operational layer over the existing agent, deterministic evidence, durable
+  runs, and proposals. DataHub remains the governed system of record and every
+  mutation retains the human approval gate.
 - No second warehouse, no BI-tool integrations (unchanged).
 - No multi-agent theater — one agent that visibly reasons beats two that don't.
 - No extractor generalization beyond honest failure — seeds stay the golden path.

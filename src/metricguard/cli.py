@@ -452,7 +452,7 @@ def ui(
     host: str = typer.Option("127.0.0.1", help="Mission Control bind address"),
     port: int = typer.Option(8765, min=1, max=65535, help="Mission Control port"),
 ):
-    """Launch the read-only Mission Control dashboard over recorded agent artifacts."""
+    """Launch the operational UI for investigations, evidence, and replay."""
     from metricguard.agent.runs import AgentRunStore
     from metricguard.ui.server import create_app, export_run
 
@@ -481,10 +481,16 @@ def ui(
     import uvicorn
 
     url = f"http://{host}:{port}"
-    suffix = f" (replay {selected_id})" if selected_id else ""
-    console.print(f"Mission Control{suffix}: [bold blue]{url}[/bold blue]")
-    console.print("[dim]Read-only view. Governance actions remain in DataHub and the CLI.[/dim]")
-    uvicorn.run(create_app(store, preferred_run_id=selected_id), host=host, port=port)
+    suffix = f" · replay {selected_id}" if replay else ""
+    console.print(f"MetricGuard UI{suffix}: [bold blue]{url}[/bold blue]")
+    console.print(
+        "[dim]Investigations can stage proposals; human approval remains enforced.[/dim]"
+    )
+    uvicorn.run(
+        create_app(store, preferred_run_id=selected_id, replay_mode=bool(replay)),
+        host=host,
+        port=port,
+    )
 
 
 @runs_app.command("list")
