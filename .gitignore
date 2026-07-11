@@ -22,5 +22,6 @@ build/
 .idea/
 .vscode/
 chore/
-data/
+data/*
+!data/fiction_retail/
 MetricGuard_3Week_Plan.md

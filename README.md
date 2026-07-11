@@ -25,11 +25,29 @@ Built for **Build with DataHub: The Agent Hackathon**. See
 
 The LLM never computes the verifiable math.
 
+## One-command demo environment
+
+Everything a reviewer needs — a Postgres warehouse with ~695k rows of
+fiction-retail data, a local DataHub, and a simulated org whose teams compute
+the same metrics with conflicting SQL — from a fresh clone:
+
+```bash
+make demo        # needs docker + uv (and ~8GB free RAM for DataHub quickstart)
+```
+
+The script is idempotent and prints what to try next. It ends with a smoke
+test that rediscovers both conflict families from the DataHub graph. The LLM
+agent additionally needs `LLM_MODEL` + a provider API key in `.env`; every
+deterministic path (discover, compare, divergence, guard, proposals) works
+without one. Teardown: `make demo-down` (warehouse) and
+`uv run datahub docker nuke` (DataHub).
+
 ## Setup (uv)
 
 ```bash
 uv sync
 uv sync --extra warehouse    # Postgres execution for numeric divergence
+uv sync --extra demo         # DataHub SDK/CLI for the demo environment scripts
 cp .env.example .env         # then fill in what you have
 ```
 
@@ -126,5 +144,9 @@ shaped MCP tools are filtered out before binding.
 
 Every agent run is persisted under `.metricguard/runs/`. See the compact,
 live-verified artifacts in [`examples/`](examples/).
+
+## License
+
+[Apache-2.0](LICENSE).
 
 

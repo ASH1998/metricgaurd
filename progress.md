@@ -39,7 +39,7 @@ _Last updated: 2026-07-11_
 - Added the required Apache-2.0 `LICENSE`, GitHub Actions CI, current README/agent
   guidance, clean lint, and expanded coverage to **51 passing tests**.
 
-## Session 2026-07-05 — MCP live, discovery from graph (#3), real write-back (#4) ✅
+## Earlier session — MCP live, discovery from graph (#3), real write-back (#4) ✅
 
 > Full session narrative (box recovery, MCP reconciliation, bugs, live GMS
 > verification, all commands): **`docs/tags.md`**.
@@ -139,12 +139,12 @@ tags / conflict incident are reserved as the **write-back payload**, preserving 
     and `DATAHUB_TOKEN_SERVICE_SALT` (read off the running container) so the existing PAT
     stayed valid. Passed `DATAHUB_VERSION=v1.5.0.6` explicitly (raw compose doesn't inject it).
   - Verified: `GET /api/gms/config` with the Bearer token → `200`.
-- The PAT in `.env` (`DATAHUB_TOKEN`, minted 2026-07-04, expires ~2026-10) now authenticates.
+- The PAT in `.env` (`DATAHUB_TOKEN`, expires ~2026-10) now authenticates.
   The MCP server (`uvx mcp-server-datahub`) will authenticate the same way.
 
 ## Environment / facts to remember
 
-- **DataHub**: remote EC2 (`ip-172-31-26-236`), docker quickstart v1.5.0.6, tunneled to
+- **DataHub**: remote EC2, docker quickstart v1.5.0.6, tunneled to
   `localhost:9002`. GMS reached via frontend proxy `localhost:9002/api/gms`.
   Login `datahub`/`datahub`. Token auth now ON.
 - **Warehouse**: fiction-retail data in `metric` schema on RDS (`POSTGRES_DSN` in `.env`).
@@ -155,7 +155,7 @@ tags / conflict incident are reserved as the **write-back payload**, preserving 
 
 ## Next steps (open)
 
-- [x] **#3 Flip discovery to the graph** — DONE (see 2026-07-05 session above).
+- [x] **#3 Flip discovery to the graph** — DONE (see earlier session above).
 - [x] **#4 Make write-back real** — DONE + PROVEN LIVE END-TO-END. Full round trip:
   graph discovery → `resolve --canonical <name>` stages proposals → `proposals approve`
   (human gate) → real MCP mutation. `datahub/writeback.py` builds Proposals with payloads
@@ -186,7 +186,3 @@ tags / conflict incident are reserved as the **write-back payload**, preserving 
 - [x] Verify divergence on graph-sourced candidates against the live warehouse.
 - [ ] Fix `vm.max_map_count` on the box so OpenSearch stops dying.
 
-## Eligibility note
-
-Rules require projects be **newly created during the submission window (Jul 6 – Aug 10, 2026)**.
-This repo is scaffolding — the real submission will be registered later in a fresh repo.

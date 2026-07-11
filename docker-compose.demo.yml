@@ -1,0 +1,27 @@
+# The demo warehouse (fiction-retail). DataHub itself runs via its own
+# quickstart compose (`datahub docker quickstart`) — scripts/setup_demo.sh
+# orchestrates both.
+#
+# Database is named `postgres` on purpose: the DataHub postgres connector names
+# datasets <database>.<schema>.<table>, and lineage in simulate_org.py points at
+# postgres.metric.* — keep them matching.
+services:
+  warehouse:
+    image: postgres:16
+    container_name: metricguard-warehouse
+    environment:
+      POSTGRES_USER: metricguard
+      POSTGRES_PASSWORD: metricguard
+      POSTGRES_DB: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - warehouse-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U metricguard -d postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  warehouse-data:
