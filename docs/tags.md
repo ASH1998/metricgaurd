@@ -1,13 +1,13 @@
-# Session worklog — MCP, graph-native discovery, and real write-back (2026-07-05)
+# Session worklog — MCP, graph-native discovery, and real write-back
 
-A complete record of the 2026-07-05 working session: fixing the DataHub box,
+A complete record of the working session: fixing the DataHub box,
 activating the MCP server, flipping discovery to read from the graph (#3), and
 making write-back real end-to-end (#4) including the structured-properties
 "money shot". Everything here was executed and verified against the live
 instance. Commands, findings, bugs, and fixes are all captured.
 
 > Environment: DataHub Core v1.5.0.6 (docker quickstart on remote EC2, SSH host
-> `awscooee` = `13.205.231.132`, tunneled to `localhost:9002`, GMS via
+> `awscooee`, tunneled to `localhost:9002`, GMS via
 > `localhost:9002/api/gms`). Warehouse: fiction-retail in the `metric` schema on
 > RDS. MCP: `uvx mcp-server-datahub` over stdio.
 
