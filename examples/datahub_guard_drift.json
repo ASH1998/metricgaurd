@@ -1,0 +1,16 @@
+{
+  "metric": "weekly_revenue",
+  "contract_source": "DataHub canonical tag + MetricGuard structured properties",
+  "canonical_dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,marts.finance.weekly_revenue,PROD)",
+  "verdict": "drift",
+  "exit_code": 1,
+  "message": "SEMANTIC BREAK from DataHub canonical 'weekly_revenue': filters changed.",
+  "diffs": [
+    {
+      "field": "filters",
+      "canonical": "NOT orders.order_status IN ('canceled', 'returned', 'disputed')",
+      "proposed": null,
+      "severity": "high"
+    }
+  ]
+}

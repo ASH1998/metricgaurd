@@ -1,0 +1,64 @@
+{
+  "source": "DataHub Agent Context Kit (official MCP server)",
+  "search_query": "/q revenue",
+  "graph_scan": {
+    "candidate_count": 3,
+    "metric_family_count": 1,
+    "metric_family": "weekly_revenue",
+    "conflicting_pairs": 3,
+    "critical_pairs": 2
+  },
+  "candidates": [
+    {
+      "name": "weekly_revenue",
+      "domain": "Finance",
+      "platform": "dbt",
+      "subtype": "Model",
+      "upstream": ["postgres.metric.orders"],
+      "tags": ["MetricGuard Canonical"]
+    },
+    {
+      "name": "revenue_tile",
+      "domain": "Business Intelligence",
+      "platform": "superset",
+      "subtype": "Dashboard Tile",
+      "upstream": ["postgres.metric.orders"],
+      "tags": ["MetricGuard Divergent"]
+    },
+    {
+      "name": "weekly_bookings",
+      "domain": "Sales Ops",
+      "platform": "superset",
+      "subtype": "Dashboard Tile",
+      "upstream": ["postgres.metric.orders", "postgres.metric.order_items"],
+      "tags": ["MetricGuard Divergent"]
+    }
+  ],
+  "finance_vs_executive": {
+    "semantic_conflict": {
+      "worst_severity": "high",
+      "changed_fields": ["filters"],
+      "finance_filter": "NOT orders.order_status IN ('canceled', 'returned', 'disputed')",
+      "executive_filter": null
+    },
+    "warehouse_proof": {
+      "periods_compared": 70,
+      "mean_pct_divergence": 15.06,
+      "max_pct_divergence": 19.89,
+      "first_divergence_key": "2022-12-26",
+      "peak": {
+        "key": "2023-02-27",
+        "finance_value": 1426557.16,
+        "executive_value": 1710317.44,
+        "absolute_divergence": 283760.28
+      }
+    }
+  },
+  "resolution": {
+    "status": "no_new_proposals",
+    "canonical_dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,marts.finance.weekly_revenue,PROD)",
+    "equivalent_resolution": "already executed",
+    "executed_proposal_count": 7,
+    "human_approval_required": false
+  }
+}
