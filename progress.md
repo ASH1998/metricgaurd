@@ -1,22 +1,41 @@
 # MetricGuard — Progress Log
 
-_Last updated: 2026-07-11. Deep session narratives: `docs/tags.md`._
+_Last updated: 2026-07-12. Deep session narratives: `docs/tags.md`._
 
-## Status: core complete, verified live end-to-end
+## Status: core complete; operational UI vertical slice built
 
-Everything below is **built and live-verified**, not planned:
+Everything below is **built**; each item states whether it was verified against
+live infrastructure or locally:
 
 - **Deterministic core** — signature extraction, comparison/severity, divergence
-  math, clustering, guard drift. 51 passing tests, CI (ruff + pytest), Apache-2.0.
+  math, clustering, guard drift. 56 passing tests, CI (ruff + pytest), Apache-2.0.
 - **Graph-native discovery** — `discover --from-graph` rediscovered both seeded
   conflict families from *semantics, not names*, through the official DataHub
   MCP server (search → observed queries → extractor → clustering).
 - **Agent** — composed graph investigation (search → SQL → owners/domains/tags →
   lineage) → deterministic proofs → validated canonical-resolution staging.
   Durable audit runs (`runs list/show`), grounded final answers (invented IDs /
-  unsupported claims / wrong approval state are caught and replaced). Family
-  identity comes from DataHub's governed `metric_family` property. Verified live
-  with Gemini; reference audited run: `f3b6493a03`.
+  unsupported claims / wrong approval state are caught and replaced). Grounding
+  failures are now durable `grounding_check_intervention` trace events, including
+  the exact reason a rewrite was demanded. Family identity comes from DataHub's
+  governed `metric_family` property. Verified live with Gemini; reference audited
+  run: `f3b6493a03`.
+- **MetricGuard UI** — `metricguard ui` is now an operational local application,
+  not a demo-only replay page. Users can list and switch durable investigations,
+  start a real agent investigation from the browser, follow running work through
+  SSE, inspect the agent/evidence trail, and view executed divergence as an inline
+  SVG chart. The browser calls the existing agent/run-store path; it does not call
+  an LLM directly or bypass the DataHub approval choke point.
+- **Replay + integration API** — frozen JSON contract v1.0, `GET /api/runs`,
+  `GET /api/runs/<id>`, `POST /api/investigations`, and SSE
+  `/api/stream/<id>`. `metricguard ui --replay <run-id>` keeps client-timed replay;
+  `--export <run-id> -o site/` emits a zero-backend snapshot using the same page
+  and contract.
+- **UI verification** — modern responsive application shell, prior-run navigation,
+  new-investigation dialog, explicit empty/offline/no-warehouse states, and live
+  rendering of the real 71-point weekly-revenue proof. Visually checked at 1280px
+  and 390px with no horizontal overflow. Opening `index.html` through `file://`
+  intentionally shows startup guidance because artifacts require the local server.
 - **Warehouse proof** — Finance vs Executive weekly revenue: **15.06% mean /
   19.89% max divergence, first divergence 2022-12-26**, executed live.
 - **Write-back is real** — approved proposals executed in GMS: canonical/divergent
@@ -35,7 +54,8 @@ Everything below is **built and live-verified**, not planned:
   ⚠️ Built and reviewed but **not yet executed end-to-end** (needs a docker
   machine) — first item in the plan.
 - **Artifacts** — live-verified `examples/`, `contrib/datahub-skills/` Skill
-  draft (submission still a human decision), LICENSE, CI, README.
+  draft (submission still a human decision), LICENSE, CI, README. Starlette and
+  Uvicorn are core dependencies; the packaged wheel includes the single-file UI.
 
 ## Environment facts
 
@@ -62,4 +82,13 @@ when work started. This repo is the submission repo.
 
 ## What remains
 
-The path from top-5 to top-1 lives in `MetricGuard_3Week_Plan.md`.
+The current UI is the operational foundation, not the finished feature. Next:
+
+- ship a committed golden run so replay works from a fresh clone;
+- add the organization conflict map with negative controls visibly excluded;
+- add proposal review/status and human approval hand-off in the UI while keeping
+  every mutation behind `DataHubClient.write()`;
+- execute `make demo` end-to-end on a clean Docker machine;
+- finish the refusal scenario, decision-legibility traces, and Guard PR workflow.
+
+The ordered plan lives in `MetricGuard_3Week_Plan.md`.
