@@ -1,0 +1,25 @@
+{
+  "family": "weekly_active_users",
+  "dialect": "postgres",
+  "description": "The golden demo scenario: three teams answer 'how many weekly active users?' with three different numbers. Rigged conflicts: distinct vs non-distinct counting, anonymous-user inclusion, event filtering, timezone, and week bucketing source.",
+  "definitions": [
+    {
+      "name": "marketing_wau",
+      "file": "marketing_wau.sql",
+      "source": "dbt model: marts/marketing/marketing_wau.sql",
+      "owner": "marketing-analytics"
+    },
+    {
+      "name": "product_wau",
+      "file": "product_wau.sql",
+      "source": "dashboard query: Product KPIs / WAU tile",
+      "owner": "product-analytics"
+    },
+    {
+      "name": "finance_wau",
+      "file": "finance_wau.sql",
+      "source": "dbt model: marts/finance/finance_wau.sql",
+      "owner": "finance-data"
+    }
+  ]
+}

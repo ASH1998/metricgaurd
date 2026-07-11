@@ -1,0 +1,25 @@
+{
+  "family": "weekly_revenue",
+  "dialect": "postgres",
+  "description": "Three teams answer 'what was revenue last week?' differently, over the fiction-retail warehouse (schema: metric). Rigged conflicts: order-status filtering (are canceled/returned/disputed orders revenue?), source population (orders header vs order_items lines), and the measure itself (stored total vs recomputed from line items). All three EXECUTE against the demo warehouse, so divergence can be proven numerically.",
+  "definitions": [
+    {
+      "name": "exec_dashboard_weekly_revenue",
+      "file": "exec_dashboard_weekly_revenue.sql",
+      "source": "dashboard query: Executive KPIs / Revenue tile",
+      "owner": "bi-team"
+    },
+    {
+      "name": "finance_weekly_revenue",
+      "file": "finance_weekly_revenue.sql",
+      "source": "dbt model: marts/finance/weekly_revenue.sql",
+      "owner": "finance-data"
+    },
+    {
+      "name": "sales_ops_weekly_revenue",
+      "file": "sales_ops_weekly_revenue.sql",
+      "source": "dashboard query: Sales Ops / Weekly Bookings",
+      "owner": "sales-operations"
+    }
+  ]
+}
