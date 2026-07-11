@@ -1,0 +1,25 @@
+{
+  "family": "weekly_refund_amount",
+  "dialect": "postgres",
+  "description": "Finance, Customer Success, and Risk all publish weekly refunds from metric.returns but apply incompatible policy boundaries. Finance books every refund, Customer Success excludes fraud and duplicate-order cases, and Risk reports only fraud-related exposure. All definitions execute against the demo Postgres warehouse.",
+  "definitions": [
+    {
+      "name": "finance_refund_liability",
+      "file": "finance_refund_liability.sql",
+      "source": "dbt model: marts/finance/weekly_refund_liability.sql",
+      "owner": "finance-data"
+    },
+    {
+      "name": "support_customer_refunds",
+      "file": "support_customer_refunds.sql",
+      "source": "dashboard query: Customer Experience / Refund cost",
+      "owner": "customer-success"
+    },
+    {
+      "name": "risk_refund_exposure",
+      "file": "risk_refund_exposure.sql",
+      "source": "dbt model: marts/risk/refund_exposure.sql",
+      "owner": "risk-analytics"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "family": "weekly_order_volume",
+  "dialect": "postgres",
+  "description": "Three teams report weekly order volume differently over metric.orders. Fulfillment counts orders in motion or delivered, Sales counts commercially accepted orders including backorders, and the executive dashboard counts every checkout attempt. All definitions execute against the demo Postgres warehouse.",
+  "definitions": [
+    {
+      "name": "fulfillment_order_volume",
+      "file": "fulfillment_order_volume.sql",
+      "source": "dbt model: marts/operations/weekly_order_volume.sql",
+      "owner": "fulfillment-analytics"
+    },
+    {
+      "name": "sales_accepted_orders",
+      "file": "sales_accepted_orders.sql",
+      "source": "dbt model: marts/sales/accepted_orders.sql",
+      "owner": "sales-operations"
+    },
+    {
+      "name": "exec_checkout_count",
+      "file": "exec_checkout_count.sql",
+      "source": "dashboard query: Executive KPIs / Checkout volume",
+      "owner": "bi-team"
+    }
+  ]
+}
