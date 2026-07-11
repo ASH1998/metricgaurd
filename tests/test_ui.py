@@ -59,8 +59,10 @@ def test_contract_projects_timeline_and_real_divergence():
     assert [event.offset_ms for event in contract.timeline] == [0, 8000, 12000]
     assert contract.timeline[1].title == "Divergence proven"
     assert contract.divergence is not None
+    assert len(contract.divergences) == 1
     assert contract.divergence.points[0].right_value == 115.0
     assert contract.run.has_divergence is True
+    assert contract.run.title == "Investigate the weekly revenue conflict"
 
 
 def test_contract_exposes_grounding_intervention():
@@ -103,6 +105,50 @@ def test_contract_makes_sentinel_trigger_and_outcome_visible():
     assert contract.timeline[1].title == "DataHub change evaluated"
     assert "18 unchanged skipped" in contract.timeline[1].detail
     assert "needs human decision" in contract.timeline[-1].detail
+    assert contract.run.title == "Change detected · rogue revenue"
+    assert contract.decision.state == "human"
+    assert contract.decision.title == "Human decision needed"
+
+
+def test_contract_exposes_multiple_proofs_and_staged_human_action():
+    run = _run()
+    second = json.loads(run.tool_traces[0].result)
+    second["left_name"] = "finance_refunds"
+    second["right_name"] = "support_refunds"
+    run.tool_traces.append(ToolTrace(
+        name="tool_prove_graph_divergence",
+        result=json.dumps(second),
+        recorded_at=run.started_at + timedelta(seconds=9),
+    ))
+    run.tool_traces.append(ToolTrace(
+        name="tool_stage_canonical_resolution",
+        result=json.dumps({
+            "staged_proposal_ids": ["abcd1234", "efgh5678"],
+            "next_command": "metricguard proposals list",
+        }),
+        recorded_at=run.started_at + timedelta(seconds=10),
+    ))
+
+    contract = build_mission_control_run(run)
+
+    assert len(contract.divergences) == 2
+    assert contract.divergences[1].left_name == "finance_refunds"
+    assert contract.decision.state == "action"
+    assert contract.decision.proposal_ids == ["abcd1234", "efgh5678"]
+
+
+def test_contract_explains_why_numeric_proof_is_unavailable():
+    run = _run()
+    run.tool_traces = [ToolTrace(
+        name="tool_prove_graph_divergence",
+        result=json.dumps({"error": 'relation "metric.events" does not exist'}),
+        recorded_at=run.started_at + timedelta(seconds=3),
+    )]
+
+    contract = build_mission_control_run(run)
+
+    assert contract.divergence is None
+    assert "metric.events" in contract.proof_unavailable_reason
 
 
 def test_api_lists_and_returns_frozen_contract(tmp_path: Path):

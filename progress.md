@@ -33,6 +33,11 @@ live infrastructure or locally:
   SSE, inspect the agent/evidence trail, and view executed divergence as an inline
   SVG chart. The browser calls the existing agent/run-store path; it does not call
   an LLM directly or bypass the DataHub approval choke point.
+- **Decision-first UX** — Sentinel runs now have meaningful asset-based titles and
+  origin/outcome badges; staged resolutions, refusals, dismissals, and failures
+  render as a prominent next-action banner. Raw tool arguments are collapsed behind
+  evidence disclosures, exact warehouse proof failures replace generic empty states,
+  and investigations with multiple successful divergence proofs get chart tabs.
 - **Replay + integration API** — frozen JSON contract v1.0, `GET /api/runs`,
   `GET /api/runs/<id>`, `POST /api/investigations`, and SSE
   `/api/stream/<id>`. `metricguard ui --replay <run-id>` keeps client-timed replay;

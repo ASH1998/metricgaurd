@@ -162,6 +162,11 @@ shaped MCP tools are filtered out before binding.
 Every agent run is persisted under `.metricguard/runs/`. See the compact,
 live-verified artifacts in [`examples/`](examples/).
 
+Mission Control leads with the decision state and human next action, distinguishes
+Sentinel-triggered work from human investigations, collapses technical tool payloads
+until requested, and lets reviewers switch between multiple executed divergence
+proofs from the same investigation.
+
 ## Standing-agent mode
 
 `metricguard sentinel` observes query definitions through DataHub and stores its
