@@ -438,6 +438,55 @@ def agent(
     console.print(f"[dim]audit trace: {result.trace_path} (run {result.run_id})[/dim]")
 
 
+@app.command()
+def ui(
+    replay: str = typer.Option(
+        "", "--replay", metavar="RUN_ID",
+        help="Serve one recorded run in client-timed replay mode",
+    ),
+    export: str = typer.Option(
+        "", "--export", metavar="RUN_ID",
+        help="Export one recorded run as a zero-backend static snapshot",
+    ),
+    output: Path = typer.Option(Path("site"), "--output", "-o", help="Static export directory"),
+    host: str = typer.Option("127.0.0.1", help="Mission Control bind address"),
+    port: int = typer.Option(8765, min=1, max=65535, help="Mission Control port"),
+):
+    """Launch the read-only Mission Control dashboard over recorded agent artifacts."""
+    from metricguard.agent.runs import AgentRunStore
+    from metricguard.ui.server import create_app, export_run
+
+    if replay and export:
+        console.print("[red]Choose either --replay or --export, not both.[/red]")
+        raise typer.Exit(code=2)
+
+    store = AgentRunStore()
+    selected_id = export or replay
+    if export:
+        run = store.get(export)
+        if run is None:
+            console.print(f"[red]No agent run '{export}'[/red]")
+            raise typer.Exit(code=2)
+        index_path = export_run(run, output)
+        console.print(f"[green]Mission Control snapshot exported[/green] to {index_path}")
+        return
+
+    if replay and store.get(replay) is None:
+        console.print(f"[red]No agent run '{replay}'[/red]")
+        raise typer.Exit(code=2)
+    if not selected_id:
+        runs = store.list()
+        selected_id = runs[0].id if runs else ""
+
+    import uvicorn
+
+    url = f"http://{host}:{port}"
+    suffix = f" (replay {selected_id})" if selected_id else ""
+    console.print(f"Mission Control{suffix}: [bold blue]{url}[/bold blue]")
+    console.print("[dim]Read-only view. Governance actions remain in DataHub and the CLI.[/dim]")
+    uvicorn.run(create_app(store, preferred_run_id=selected_id), host=host, port=port)
+
+
 @runs_app.command("list")
 def runs_list():
     """List agent runs with status and tool-call count."""

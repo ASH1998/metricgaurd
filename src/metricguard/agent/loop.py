@@ -117,6 +117,12 @@ async def arun_agent_result(goal: str, verbose: bool = True) -> AgentExecution:
                 if issue and final_retries < MAX_FINAL_RETRIES:
                     final_retries += 1
                     revision_requested = True
+                    store.record_tool(
+                        run,
+                        "grounding_check_intervention",
+                        {"attempt": final_retries},
+                        json.dumps({"status": "rewrite_requested", "issue": issue}),
+                    )
                     messages.append(HumanMessage(content=(
                         f"Your final response failed the grounding check: {issue}. "
                         "Rewrite the concise final report using only recorded tool facts. "

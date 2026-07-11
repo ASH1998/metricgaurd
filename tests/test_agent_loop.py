@@ -35,6 +35,8 @@ def test_agent_retries_empty_provider_final_and_records_answer(monkeypatch, tmp_
     recorded = store.get(result.run_id)
     assert recorded.status == RunStatus.COMPLETED
     assert recorded.final_answer == result.answer
+    assert recorded.tool_traces[0].name == "grounding_check_intervention"
+    assert "no renderable text" in recorded.tool_traces[0].result
 
 
 def test_agent_rejects_unsupported_final_claims(monkeypatch, tmp_path):
@@ -52,3 +54,6 @@ def test_agent_rejects_unsupported_final_claims(monkeypatch, tmp_path):
 
     result = asyncio.run(loop.arun_agent_result("Audit revenue", verbose=False))
     assert result.answer == "The DataHub evidence supports the recommendation."
+    recorded = store.get(result.run_id)
+    assert recorded.tool_traces[0].name == "grounding_check_intervention"
+    assert "unsupported claim" in recorded.tool_traces[0].result
