@@ -1,0 +1,4 @@
+interface:
+  display_name: "DataHub Semantic Conflicts"
+  short_description: "Find and resolve conflicting metric SQL"
+  default_prompt: "Use $datahub-semantic-conflicts to investigate conflicting definitions of weekly revenue in DataHub."
