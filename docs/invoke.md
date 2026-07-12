@@ -47,7 +47,7 @@ uv run metricguard divergence \
   seeds/metric_families/weekly_revenue/finance_weekly_revenue.sql \
   --value-col weekly_revenue
 ```
-→ headline panel (`mean 15.06% · max 19.89% · diverging since 2022-12-26`) plus
+→ headline panel (`mean 13.07% · max 16.59% · diverging since 2022-12-26`) plus
 a table of the largest weekly gaps in dollars. _Takes ~20s — it's querying
 Postgres._ Needs `POSTGRES_DSN`.
 

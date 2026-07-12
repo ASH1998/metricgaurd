@@ -42,9 +42,10 @@
       "executive_filter": null
     },
     "warehouse_proof": {
-      "periods_compared": 70,
-      "mean_pct_divergence": 15.06,
-      "max_pct_divergence": 19.89,
+      "periods_compared": 71,
+      "mean_pct_divergence": 13.07,
+      "max_pct_divergence": 16.59,
+      "total_abs_divergence": 28917693.0,
       "first_divergence_key": "2022-12-26",
       "peak": {
         "key": "2023-02-27",

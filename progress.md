@@ -53,8 +53,16 @@ live infrastructure or locally:
   investigations; the mutation endpoint requires `application/json`; local and graph
   divergence tools now expose the same full-points chart contract. Chart formatting
   distinguishes currency metrics from counts and handles identical/zero series.
-- **Warehouse proof** — Finance vs Executive weekly revenue: **15.06% mean /
-  19.89% max divergence, first divergence 2022-12-26**, executed live.
+- **Warehouse proofs frozen (2026-07-12)** — the committed
+  `data/fiction_retail` fixture is pinned by hash in
+  [`examples/warehouse_proofs.json`](examples/warehouse_proofs.json), and all
+  three live Postgres proof pairs were re-run against the configured warehouse:
+  Executive vs Finance
+  weekly revenue **13.07% mean / 16.59% max, $28,917,693 cumulative gap, first
+  divergence 2022-12-26**; Fulfillment vs Executive order volume **30.05% /
+  34.40%, 34,651 orders, first divergence 2022-12-26**; and Finance vs Customer
+  Success refunds **3.11% / 15.14%, $174,216, first divergence 2023-01-09**.
+  The frozen manifest is the source for the recording and public claims.
 - **Expanded conflict estate** — 12 competing definitions across four families.
   Two additional Postgres-backed proofs are live-verified: Fulfillment vs
   Executive order volume (**30.05% mean / 34.40% max**) and Finance vs Customer
@@ -79,11 +87,11 @@ live infrastructure or locally:
   clients (6 new tests).
 - **Impact numbers + judge-proofing (2026-07-12)** —
   `DivergenceReport.total_abs_divergence`: the cumulative gap, live-verified —
-  **Finance vs Executive weekly revenue disagree by $28.9M across 71 weeks**.
+  **Finance vs Executive weekly revenue disagree by $28,917,693 across 71 weeks**.
   Surfaced in the CLI headline, agent tool JSON, UI contract, and a fifth
   Mission Control stat card (currency-aware, with a client-side fallback sum for
   runs recorded before the field existed; browser-verified on both a count
-  metric, 34.7K, and a currency metric, $28.9M). `divergence --segment-col`
+  metric, 34.7K, and a currency metric, $28,917,693). `divergence --segment-col`
   exposes the existing gap-concentration math in the CLI. `metricguard doctor`
   checks warehouse, DataHub GMS, MCP handshake, LLM key, and local stores, and
   prints the exact fix per failure — all five checks verified green against the
@@ -141,10 +149,10 @@ The current UI is the operational foundation, not the finished feature. Next:
 - the week-2 big swings (see plan): semantic ablation (per-dimension gap
   attribution), blast-radius quantification from lineage, guard break → SQL
   construct localization.
-- ⚠️ reconcile recorded divergence numbers before the video: docs/examples say
-  weekly_revenue is 15.06% mean / 19.89% max, but the live warehouse today gives
-  **13.07% / 16.59%** (same first-divergence date) — the data moved after the
-  numbers were recorded. Freeze the warehouse, then refresh `examples/`,
-  README, and this file together.
+- ✅ warehouse evidence is frozen in
+  [`examples/warehouse_proofs.json`](examples/warehouse_proofs.json). The
+  fixture hash, exact SQL paths, and all three proof summaries are checked
+  against the public claims by the test suite; record the video from this
+  snapshot rather than a mutable warehouse rerun.
 
 The ordered plan lives in `MetricGuard_3Week_Plan.md`.

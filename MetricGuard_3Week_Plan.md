@@ -155,8 +155,10 @@ preferred sentinel and demo path once its focused operations are verified.
 - [ ] **Semantic ablation (gap attribution)** — the week-2 technical
       centerpiece: given a signature diff, generate intermediate SQL variants
       (sqlglot) that toggle one differing dimension at a time, execute the
-      ladder, and attribute the divergence per dimension — "13.07% total:
-      9.8pts from the order_status filter, 3.2pts from the amount formula."
+      ladder, and attribute the divergence per dimension using only the
+      frozen, executed baseline (for example: "<verified total>: <filter
+      contribution> from the order_status filter, <aggregation contribution>
+      from the amount formula.")
       Turns "they disagree" into a causal decomposition with dollar values.
       Scope: filters + aggregation on the seeded families only. Pure
       deterministic math. **Cut without regret if not demoable by Jul 25.**

@@ -1,0 +1,51 @@
+{
+  "fixture": {
+    "path": "data/fiction_retail",
+    "introduced_by_commit": "27debb847c0198f17c198046eeef0136173bd379",
+    "hash_scheme": "SHA-256 of lexically sorted '<file SHA-256>  <relative path>' records",
+    "sha256": "d33a2ae19032c989c37e47eafc9c93c70cb69da64a7ffa03f436af8528a3d6bb"
+  },
+  "frozen_on": "2026-07-12",
+  "provenance": "Each pair was executed against the configured Postgres warehouse during the data freeze. The committed fiction-retail fixture is the immutable input for make demo; use these exact values in the recorded demo.",
+  "proofs": [
+    {
+      "id": "weekly_revenue",
+      "left_sql": "seeds/metric_families/weekly_revenue/exec_dashboard_weekly_revenue.sql",
+      "right_sql": "seeds/metric_families/weekly_revenue/finance_weekly_revenue.sql",
+      "key_col": "week_start",
+      "value_col": "weekly_revenue",
+      "periods_compared": 71,
+      "diverging_periods": 71,
+      "mean_pct_divergence": 13.07,
+      "max_pct_divergence": 16.59,
+      "total_abs_divergence": 28917693.0,
+      "first_divergence_key": "2022-12-26"
+    },
+    {
+      "id": "weekly_order_volume",
+      "left_sql": "seeds/metric_families/weekly_order_volume/fulfillment_order_volume.sql",
+      "right_sql": "seeds/metric_families/weekly_order_volume/exec_checkout_count.sql",
+      "key_col": "week_start",
+      "value_col": "weekly_orders",
+      "periods_compared": 71,
+      "diverging_periods": 71,
+      "mean_pct_divergence": 30.05,
+      "max_pct_divergence": 34.4,
+      "total_abs_divergence": 34651.0,
+      "first_divergence_key": "2022-12-26"
+    },
+    {
+      "id": "weekly_refund_amount",
+      "left_sql": "seeds/metric_families/weekly_refund_amount/finance_refund_liability.sql",
+      "right_sql": "seeds/metric_families/weekly_refund_amount/support_customer_refunds.sql",
+      "key_col": "week_start",
+      "value_col": "weekly_refunds",
+      "periods_compared": 69,
+      "diverging_periods": 66,
+      "mean_pct_divergence": 3.11,
+      "max_pct_divergence": 15.14,
+      "total_abs_divergence": 174216.0,
+      "first_divergence_key": "2023-01-09"
+    }
+  ]
+}

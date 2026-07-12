@@ -108,10 +108,10 @@ def test_decision_document_preserves_agent_evidence_for_datahub():
     canonical, divergent = _defs()
     (document, *_) = build_canonical_writeback(
         "weekly_revenue", canonical, divergent,
-        evidence_summary="Warehouse proof: executive tile overstates revenue by 15.06% on average.",
+        evidence_summary="Warehouse proof: executive tile overstates revenue by 13.07% on average.",
     )
     assert "## Evidence behind this decision" in document.payload["content"]
-    assert "15.06%" in document.payload["content"]
+    assert "13.07%" in document.payload["content"]
 
 
 def test_writeback_requires_graph_provenance():

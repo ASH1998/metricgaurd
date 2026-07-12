@@ -9,8 +9,10 @@ on its own initiative but knows when to say "this needs a human."**
 
 1. **Deterministic proof.** Parsing, semantic signatures, conflict diffs,
    warehouse divergence, and drift detection are pure code. The numbers a
-   judge sees — *15.06% mean divergence, first diverged 2022-12-26* — were
-   executed, not estimated. The LLM never does the verifiable math.
+   judge sees — *13.07% mean / 16.59% max weekly-revenue divergence, first
+   diverged 2022-12-26* — were executed, not estimated. The LLM never does the
+   verifiable math. The complete frozen proof record is
+   [`examples/warehouse_proofs.json`](../examples/warehouse_proofs.json).
 
 2. **Agent judgment.** The LLM decides what the evidence means: which conflict
    deserves warehouse proof, whether a canonical recommendation is defensible,

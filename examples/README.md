@@ -6,6 +6,10 @@ Reviewers can inspect them without an LLM key or running infrastructure.
 - [`weekly_revenue_evidence.json`](weekly_revenue_evidence.json) — graph-native
   discovery, lineage, deterministic conflicts, warehouse divergence, and the
   completed resolution state.
+- [`warehouse_proofs.json`](warehouse_proofs.json) — the frozen, live-executed
+  results for all three Postgres proof pairs, tied to the committed
+  `data/fiction_retail` fixture hash. This is the single numerical source for
+  the demo recording and public documentation.
 - [`datahub_guard_drift.json`](datahub_guard_drift.json) — a changed Executive
   query rejected against the canonical signature stored in DataHub.
 

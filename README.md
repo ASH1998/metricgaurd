@@ -118,6 +118,20 @@ uv run metricguard guard datahub-check \
 uv run pytest
 ```
 
+## Frozen warehouse proof snapshot (2026-07-12)
+
+The committed `data/fiction_retail` fixture is the demo's immutable warehouse
+input. All three proof pairs were re-executed against the configured Postgres
+warehouse after the freeze; use the values below in the video. The complete,
+machine-readable record (including fixture hash and SQL paths) is
+[`examples/warehouse_proofs.json`](examples/warehouse_proofs.json).
+
+| Proof pair | Mean / max divergence | Cumulative gap | First divergence |
+| --- | --- | --- | --- |
+| Executive vs Finance weekly revenue | 13.07% / 16.59% | $28,917,693 | 2022-12-26 |
+| Fulfillment vs Executive weekly order volume | 30.05% / 34.40% | 34,651 orders | 2022-12-26 |
+| Finance vs Customer Success weekly refunds | 3.11% / 15.14% | $174,216 | 2023-01-09 |
+
 ## Architecture
 
 ```
