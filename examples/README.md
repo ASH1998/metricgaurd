@@ -10,6 +10,9 @@ Reviewers can inspect them without an LLM key or running infrastructure.
   results for all three Postgres proof pairs, tied to the committed
   `data/fiction_retail` fixture hash. This is the single numerical source for
   the demo recording and public documentation.
+- [`golden_run/`](golden_run/) — the committed no-infrastructure Mission
+  Control replay. Run `uv run metricguard ui --replay golden` from a fresh
+  clone to inspect the deterministic full-catalog audit and all three proofs.
 - [`datahub_guard_drift.json`](datahub_guard_drift.json) — a changed Executive
   query rejected against the canonical signature stored in DataHub.
 

@@ -43,6 +43,11 @@ live infrastructure or locally:
   `/api/stream/<id>`. `metricguard ui --replay <run-id>` keeps client-timed replay;
   `--export <run-id> -o site/` emits a zero-backend snapshot using the same page
   and contract.
+- **Golden replay (2026-07-12)** — `examples/golden_run/` commits one completed
+  deterministic full-catalog audit with all three warehouse proofs. A fresh
+  clone can run `uv run metricguard ui --replay golden` with no DataHub,
+  warehouse, or LLM connection; the recorder verifies every proof against
+  `examples/warehouse_proofs.json` before it writes the artifact.
 - **UI verification** — modern responsive application shell, prior-run navigation,
   new-investigation dialog, explicit empty/offline/no-warehouse states, and live
   rendering of the real 71-point weekly-revenue proof. Visually checked at 1280px
@@ -58,10 +63,10 @@ live infrastructure or locally:
   [`examples/warehouse_proofs.json`](examples/warehouse_proofs.json), and all
   three live Postgres proof pairs were re-run against the configured warehouse:
   Executive vs Finance
-  weekly revenue **13.07% mean / 16.59% max, $28,917,693 cumulative gap, first
+  weekly revenue **13.07% mean / 16.59% max, $28,917,693.16 cumulative gap, first
   divergence 2022-12-26**; Fulfillment vs Executive order volume **30.05% /
   34.40%, 34,651 orders, first divergence 2022-12-26**; and Finance vs Customer
-  Success refunds **3.11% / 15.14%, $174,216, first divergence 2023-01-09**.
+  Success refunds **3.11% / 15.14%, $174,216.43, first divergence 2023-01-09**.
   The frozen manifest is the source for the recording and public claims.
 - **Expanded conflict estate** — 12 competing definitions across four families.
   Two additional Postgres-backed proofs are live-verified: Fulfillment vs
@@ -87,11 +92,11 @@ live infrastructure or locally:
   clients (6 new tests).
 - **Impact numbers + judge-proofing (2026-07-12)** —
   `DivergenceReport.total_abs_divergence`: the cumulative gap, live-verified —
-  **Finance vs Executive weekly revenue disagree by $28,917,693 across 71 weeks**.
+  **Finance vs Executive weekly revenue disagree by $28,917,693.16 across 71 weeks**.
   Surfaced in the CLI headline, agent tool JSON, UI contract, and a fifth
   Mission Control stat card (currency-aware, with a client-side fallback sum for
   runs recorded before the field existed; browser-verified on both a count
-  metric, 34.7K, and a currency metric, $28,917,693). `divergence --segment-col`
+  metric, 34.7K, and a currency metric, $28,917,693.16). `divergence --segment-col`
   exposes the existing gap-concentration math in the CLI. `metricguard doctor`
   checks warehouse, DataHub GMS, MCP handshake, LLM key, and local stores, and
   prints the exact fix per failure — all five checks verified green against the

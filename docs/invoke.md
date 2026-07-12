@@ -84,6 +84,8 @@ uv run metricguard proposals reject <id>       # dismiss (kept for the audit tra
 ```bash
 uv run metricguard ui
 uv run metricguard ui --replay <run-id>
+# fresh-clone, zero-infrastructure replay of the committed flagship run
+uv run metricguard ui --replay golden
 ```
 
 ### 9. Sentinel — let a DataHub change start the investigation

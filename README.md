@@ -128,9 +128,9 @@ machine-readable record (including fixture hash and SQL paths) is
 
 | Proof pair | Mean / max divergence | Cumulative gap | First divergence |
 | --- | --- | --- | --- |
-| Executive vs Finance weekly revenue | 13.07% / 16.59% | $28,917,693 | 2022-12-26 |
+| Executive vs Finance weekly revenue | 13.07% / 16.59% | $28,917,693.16 | 2022-12-26 |
 | Fulfillment vs Executive weekly order volume | 30.05% / 34.40% | 34,651 orders | 2022-12-26 |
-| Finance vs Customer Success weekly refunds | 3.11% / 15.14% | $174,216 | 2023-01-09 |
+| Finance vs Customer Success weekly refunds | 3.11% / 15.14% | $174,216.43 | 2023-01-09 |
 
 ## Architecture
 
@@ -183,8 +183,15 @@ stale evidence (cosmetic SQL edits still pass — signature equality is the
 check, not text equality). `--skip-verification` is the explicit human
 override.
 
-Every agent run is persisted under `.metricguard/runs/`. See the compact,
-live-verified artifacts in [`examples/`](examples/).
+Every agent run is persisted under `.metricguard/runs/`. A fresh clone can
+replay the committed flagship investigation with no DataHub, warehouse, or LLM
+connection:
+
+```bash
+uv run metricguard ui --replay golden
+```
+
+See the compact, live-verified artifacts in [`examples/`](examples/).
 
 Mission Control leads with the decision state and human next action, distinguishes
 Sentinel-triggered work from human investigations, collapses technical tool payloads

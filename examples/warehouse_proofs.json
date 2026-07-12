@@ -18,7 +18,7 @@
       "diverging_periods": 71,
       "mean_pct_divergence": 13.07,
       "max_pct_divergence": 16.59,
-      "total_abs_divergence": 28917693.0,
+      "total_abs_divergence": 28917693.16,
       "first_divergence_key": "2022-12-26"
     },
     {
@@ -44,7 +44,7 @@
       "diverging_periods": 66,
       "mean_pct_divergence": 3.11,
       "max_pct_divergence": 15.14,
-      "total_abs_divergence": 174216.0,
+      "total_abs_divergence": 174216.43,
       "first_divergence_key": "2023-01-09"
     }
   ]

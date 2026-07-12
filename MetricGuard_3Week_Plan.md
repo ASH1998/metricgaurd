@@ -238,7 +238,7 @@ Goal: bonus criteria locked; everything frozen and boring.
       capability verification stays regardless.
 - [ ] README final pass *as a judge*: follow it verbatim on a clean machine
       (including `metricguard ui --replay` on the shipped example run).
-- [ ] Ship a **golden replay run** in `examples/` so judges get the Mission
+- [x] Ship a **golden replay run** in `examples/` so judges get the Mission
       Control experience with zero infrastructure.
 - [ ] Deploy the **one frozen gh-pages snapshot** (`metricguard ui --export` of
       the golden run, deployed once, then left alone) and link it in README +

@@ -635,7 +635,7 @@ def sentinel(
 def ui(
     replay: str = typer.Option(
         "", "--replay", metavar="RUN_ID",
-        help="Serve one recorded run in client-timed replay mode",
+        help="Serve one recorded run in client-timed replay mode (use 'golden' for the shipped run)",
     ),
     export: str = typer.Option(
         "", "--export", metavar="RUN_ID",
@@ -647,6 +647,7 @@ def ui(
 ):
     """Launch the operational UI for investigations, evidence, and replay."""
     from metricguard.agent.runs import AgentRunStore
+    from metricguard.ui.replay import resolve_replay_run
     from metricguard.ui.server import create_app, export_run
 
     if replay and export:
@@ -664,9 +665,15 @@ def ui(
         console.print(f"[green]Mission Control snapshot exported[/green] to {index_path}")
         return
 
-    if replay and store.get(replay) is None:
-        console.print(f"[red]No agent run '{replay}'[/red]")
-        raise typer.Exit(code=2)
+    if replay:
+        resolved = resolve_replay_run(replay, local_store=store)
+        if resolved is None:
+            console.print(
+                f"[red]No agent run '{replay}'[/red]. "
+                "Use `--replay golden` for the shipped replay."
+            )
+            raise typer.Exit(code=2)
+        store, selected_id = resolved
     if not selected_id:
         runs = store.list()
         selected_id = runs[0].id if runs else ""

@@ -60,12 +60,12 @@ def test_public_docs_repeat_only_frozen_proof_figures():
     progress = (ROOT / "progress.md").read_text()
 
     assert f"{revenue['mean_pct_divergence']:.2f}% / {revenue['max_pct_divergence']:.2f}%" in readme
-    assert f"${revenue['total_abs_divergence']:,.0f}" in readme
+    assert f"${revenue['total_abs_divergence']:,.2f}" in readme
     assert f"{order_volume['mean_pct_divergence']:.2f}% / {order_volume['max_pct_divergence']:.2f}%" in readme
     assert f"{refunds['mean_pct_divergence']:.2f}% / {refunds['max_pct_divergence']:.2f}%" in readme
     assert "13.07% mean / 16.59% max" in pitch
     assert "mean 13.07% · max 16.59%" in invoke
-    assert "$28,917,693" in progress
+    assert "$28,917,693.16" in progress
     public_docs = "\n".join((readme, pitch, invoke, progress))
     assert "15.06%" not in public_docs
     assert "19.89%" not in public_docs
