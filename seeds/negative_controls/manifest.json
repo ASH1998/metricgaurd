@@ -1,0 +1,36 @@
+{
+  "description": "Near-miss assets emitted into the simulated DataHub organization. They are deliberately plausible search results, but they must not cluster with MetricGuard's four conflicting metric families.",
+  "definitions": [
+    {
+      "name": "monthly_revenue_trend",
+      "file": "monthly_revenue_trend.sql",
+      "source": "dbt model: marts/finance/monthly_revenue.sql",
+      "owner": "finance-data",
+      "reason": "Monthly revenue is a reporting trend, not a competing weekly-revenue definition.",
+      "kind": "query"
+    },
+    {
+      "name": "weekly_new_customer_signups",
+      "file": "weekly_new_customer_signups.sql",
+      "source": "dbt model: marts/marketing/weekly_signups.sql",
+      "owner": "marketing-analytics",
+      "reason": "Weekly signups share a time grain with other metrics but measure a different entity and source population.",
+      "kind": "query"
+    },
+    {
+      "name": "average_order_value",
+      "file": "average_order_value.sql",
+      "source": "dashboard query: Executive KPIs / Average order value",
+      "owner": "bi-team",
+      "reason": "Average order value uses the orders source but is an average, not revenue or order volume.",
+      "kind": "query"
+    },
+    {
+      "name": "revenue_forecast_inputs",
+      "source": "raw table: metric.revenue_forecast_inputs",
+      "owner": "sales-operations",
+      "reason": "A raw planning input with a revenue-related name is source data, not a SQL metric definition.",
+      "kind": "raw_table"
+    }
+  ]
+}

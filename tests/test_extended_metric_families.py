@@ -7,6 +7,7 @@ from metricguard.models import MetricDefinition, Severity
 from metricguard.signature.extractor import extract_signature
 
 SEEDS = Path("seeds/metric_families")
+NEGATIVE_CONTROLS = Path("seeds/negative_controls")
 
 
 def _load_family(family: str) -> list[MetricDefinition]:
@@ -22,6 +23,19 @@ def _load_family(family: str) -> list[MetricDefinition]:
             signature=extract_signature(sql),
         ))
     return definitions
+
+
+def _load_negative_controls() -> list[MetricDefinition]:
+    manifest = json.loads((NEGATIVE_CONTROLS / "manifest.json").read_text())
+    return [
+        MetricDefinition(
+            name=item["name"],
+            sql=(NEGATIVE_CONTROLS / item["file"]).read_text(),
+            signature=extract_signature((NEGATIVE_CONTROLS / item["file"]).read_text()),
+        )
+        for item in manifest["definitions"]
+        if item["kind"] == "query"
+    ]
 
 
 def test_order_volume_family_is_executable_and_conflicts_on_policy_filters():
@@ -81,3 +95,28 @@ def test_governed_family_boundary_prevents_shared_source_cross_cluster():
     # These share metric.orders, weekly grain, and similar names. Without the
     # governed negative boundary they can incorrectly union transitively.
     assert cluster_candidates([revenue, order_volume]) == []
+
+
+def test_negative_controls_are_explicitly_excluded_from_conflict_families():
+    positives = [
+        item
+        for family in (
+            "weekly_active_users",
+            "weekly_order_volume",
+            "weekly_refund_amount",
+            "weekly_revenue",
+        )
+        for item in _load_family(family)
+    ]
+    controls = _load_negative_controls()
+
+    clusters = cluster_candidates(positives + controls)
+
+    clustered = {member for cluster in clusters for member in cluster.members}
+    assert {control.name for control in controls}.isdisjoint(clustered)
+    assert {cluster.metric_family for cluster in clusters} == {
+        "weekly_active_users",
+        "weekly_order_volume",
+        "weekly_refund_amount",
+        "weekly_revenue",
+    }

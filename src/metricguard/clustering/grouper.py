@@ -100,6 +100,25 @@ def _pair_score(a: MetricDefinition, b: MetricDefinition) -> tuple[float, list[C
         ))
 
     if a.signature and b.signature:
+        # A different reporting grain is a near miss, not a conflict: monthly
+        # revenue and weekly revenue may share a source and measure, but answer
+        # different business questions.  Likewise, an average is not a sum or
+        # count just because it touches the same population.  These hard
+        # negatives keep common dashboard decoys out of a discovered family.
+        a_grain, b_grain = a.signature.grain, b.signature.grain
+        if a_grain and b_grain and a_grain != b_grain:
+            return 0.0, [ClusterEvidence(
+                signal="different_grain",
+                detail=f"'{a_grain}' != '{b_grain}'",
+                weight=0.0,
+            )]
+        a_agg, b_agg = a.signature.aggregation, b.signature.aggregation
+        if a_agg and b_agg and a_agg.function != b_agg.function:
+            return 0.0, [ClusterEvidence(
+                signal="different_aggregation",
+                detail=f"'{a_agg.function}' != '{b_agg.function}'",
+                weight=0.0,
+            )]
         shared = set(a.signature.source_population) & set(b.signature.source_population)
         if shared:
             score += _W_SOURCES
