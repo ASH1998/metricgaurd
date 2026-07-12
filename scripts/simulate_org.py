@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -67,6 +68,7 @@ from datahub.metadata.schema_classes import (
 
 REPO = Path(__file__).resolve().parent.parent
 SEEDS = REPO / "seeds" / "metric_families"
+NEGATIVE_CONTROLS = REPO / "seeds" / "negative_controls"
 ENV = REPO / ".env"
 
 # --- source-warehouse identity ------------------------------------------------
@@ -111,6 +113,11 @@ UPSTREAMS: dict[str, list[str]] = {
     "finance_refund_liability": ["returns"],
     "support_customer_refunds": ["returns"],
     "risk_refund_exposure": ["returns"],
+    # Near misses: deliberately plausible but not competing metric definitions.
+    "monthly_revenue_trend": ["orders"],
+    "weekly_new_customer_signups": ["customers"],
+    "average_order_value": ["orders"],
+    "revenue_forecast_inputs": ["orders"],
 }
 
 # Synthetic "when this definition landed" dates — staggered so the graph reads
@@ -128,6 +135,10 @@ CREATED_ON: dict[str, str] = {
     "finance_refund_liability": "2023-05-01",
     "support_customer_refunds": "2023-07-10",
     "risk_refund_exposure": "2023-09-18",
+    "monthly_revenue_trend": "2023-10-02",
+    "weekly_new_customer_signups": "2023-10-09",
+    "average_order_value": "2023-10-16",
+    "revenue_forecast_inputs": "2023-10-23",
 }
 
 
@@ -172,6 +183,9 @@ class Asset:
     platform: str  # dbt | superset
     dataset_name: str  # platform-native asset name
     subtype: str
+    is_negative_control: bool = False
+    is_query: bool = True
+    exclusion_reason: str = ""
 
     @property
     def dataset_urn(self) -> str:
@@ -181,14 +195,14 @@ class Asset:
 
     @property
     def query_urn(self) -> str:
-        return f"urn:li:query:mg_{self.family}_{self.name}"
+        return f"urn:li:query:mg_{self.family or 'near_miss'}_{self.name}"
 
     @property
     def upstream_urns(self) -> list[str]:
         return [source_table_urn(t) for t in UPSTREAMS[self.name]]
 
 
-def build_asset(family: str, defn: dict) -> Asset:
+def build_asset(family: str, defn: dict, *, is_negative_control: bool = False) -> Asset:
     source = defn["source"]
     if source.startswith("dbt model:"):
         # "dbt model: marts/finance/weekly_revenue.sql" -> marts.finance.weekly_revenue
@@ -200,20 +214,26 @@ def build_asset(family: str, defn: dict) -> Asset:
         label = source.split(":", 1)[1].strip()
         dataset_name = ".".join(_slug(p) for p in label.split("/"))
         platform, subtype = "superset", "Dashboard Tile"
+    elif source.startswith("raw table:"):
+        dataset_name = source.split(":", 1)[1].strip()
+        platform, subtype = "postgres", "Table"
     else:
         dataset_name = _slug(defn["name"])
         platform, subtype = "postgres", "View"
 
-    sql_path = SEEDS / family / defn["file"]
+    sql_path = (NEGATIVE_CONTROLS if is_negative_control else SEEDS / family) / defn.get("file", "")
     return Asset(
         name=defn["name"],
         family=family,
-        sql=sql_path.read_text().strip(),
+        sql=sql_path.read_text().strip() if defn.get("file") else "",
         owner=defn["owner"],
         source=source,
         platform=platform,
         dataset_name=dataset_name,
         subtype=subtype,
+        is_negative_control=is_negative_control,
+        is_query=defn.get("kind", "query") == "query",
+        exclusion_reason=defn.get("reason", ""),
     )
 
 
@@ -224,6 +244,9 @@ def load_assets() -> list[Asset]:
         family = manifest["family"]
         for defn in manifest["definitions"]:
             assets.append(build_asset(family, defn))
+    controls = json.loads((NEGATIVE_CONTROLS / "manifest.json").read_text())
+    for definition in controls["definitions"]:
+        assets.append(build_asset("", definition, is_negative_control=True))
     return assets
 
 
@@ -290,11 +313,19 @@ def build_mcps(assets: list[Asset]) -> list[MetadataChangeProposalWrapper]:
                 aspect=DatasetPropertiesClass(
                     name=a.dataset_name.split(".")[-1],
                     qualifiedName=a.dataset_name,
-                    description=f"{a.family.replace('_', ' ')} as computed by {a.owner} ({a.source}).",
+                    description=(
+                        f"Negative control — {a.exclusion_reason}"
+                        if a.is_negative_control else
+                        f"{a.family.replace('_', ' ')} as computed by {a.owner} ({a.source})."
+                    ),
                     customProperties={
-                        "metric_family": a.family,
                         "owner_team": a.owner,
                         "asset_source": a.source,
+                        **({"metric_family": a.family} if a.family else {}),
+                        **({
+                            "metricguard_negative_control": "true",
+                            "metricguard_exclusion_reason": a.exclusion_reason,
+                        } if a.is_negative_control else {}),
                     },
                     created=audit(created),
                 ),
@@ -344,6 +375,9 @@ def build_mcps(assets: list[Asset]) -> list[MetadataChangeProposalWrapper]:
                 ),
             )
         )
+        if not a.is_query:
+            continue  # Raw source data is visible in DataHub, never a SQL candidate.
+
         # 4f. the Query entity — carries the actual SQL (THE discovery hook)
         mcps.append(
             MetadataChangeProposalWrapper(
@@ -356,7 +390,11 @@ def build_mcps(assets: list[Asset]) -> list[MetadataChangeProposalWrapper]:
                     created=audit(created),
                     lastModified=audit(created),
                     name=f"{a.owner}: {a.family}",
-                    description=f"{a.family} definition owned by {a.owner} ({a.source}).",
+                    description=(
+                        f"Negative control — {a.exclusion_reason}"
+                        if a.is_negative_control else
+                        f"{a.family} definition owned by {a.owner} ({a.source})."
+                    ),
                 ),
             )
         )
@@ -389,7 +427,10 @@ def print_plan(assets: list[Asset], mcps: list[MetadataChangeProposalWrapper]) -
         for a in items:
             ups = ", ".join(t for t in UPSTREAMS[a.name])
             print(f"    - {a.owner:<20} {a.platform}:{a.dataset_name}")
-            print(f"        query {a.query_urn}")
+            if a.is_query:
+                print(f"        query {a.query_urn}")
+            else:
+                print("        raw source dataset (no Query entity)")
             print(f"        reads {ups}")
 
     print("\n=== CONFLICT FAMILIES (what MetricGuard should rediscover) ===")
@@ -397,7 +438,13 @@ def print_plan(assets: list[Asset], mcps: list[MetadataChangeProposalWrapper]) -
     for a in assets:
         fam.setdefault(a.family, []).append(a.owner)
     for family, owners in fam.items():
-        print(f"  {family}: {len(owners)} competing defs across {', '.join(owners)}")
+        if family:
+            print(f"  {family}: {len(owners)} competing defs across {', '.join(owners)}")
+
+    controls = [a for a in assets if a.is_negative_control]
+    print("\n=== NEGATIVE CONTROLS (visible in DataHub, excluded from clustering) ===")
+    for control in controls:
+        print(f"  {control.name}: {control.exclusion_reason}")
 
     counts: dict[str, int] = {}
     for m in mcps:
@@ -409,6 +456,10 @@ def print_plan(assets: list[Asset], mcps: list[MetadataChangeProposalWrapper]) -
 
 
 def read_env(key: str) -> str | None:
+    # A caller may intentionally point a one-off emission at a local SSH tunnel
+    # without modifying the checked-out .env file.
+    if value := os.environ.get(key):
+        return value
     if not ENV.exists():
         return None
     for line in ENV.read_text().splitlines():

@@ -105,7 +105,7 @@ say "Cataloging the warehouse schema into DataHub (postgres.metric.*)"
 uv run datahub ingest -c ingestion/postgres_metric.yml
 
 # --- 7. the simulated org + write-back prerequisites --------------------------------
-say "Ingesting the simulated org (5 domains, 5 teams, 6 conflicting metric definitions)"
+say "Ingesting the simulated org (8 domains, 8 teams, 12 conflicting definitions + 4 near-miss controls)"
 uv run python scripts/simulate_org.py --emit
 say "Creating write-back tag + structured-property definitions"
 uv run python scripts/bootstrap_writeback_entities.py --emit
