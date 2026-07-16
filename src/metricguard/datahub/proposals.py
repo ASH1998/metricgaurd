@@ -68,18 +68,18 @@ class ProposalStore:
         return self.directory / f"{proposal_id}.json"
 
     def stage(self, proposal: Proposal) -> Proposal:
-        self._path(proposal.id).write_text(proposal.model_dump_json(indent=2))
+        self._path(proposal.id).write_text(proposal.model_dump_json(indent=2), encoding="utf-8")
         return proposal
 
     def get(self, proposal_id: str) -> Proposal | None:
         path = self._path(proposal_id)
         if not path.exists():
             return None
-        return Proposal.model_validate(json.loads(path.read_text()))
+        return Proposal.model_validate(json.loads(path.read_text(encoding="utf-8")))
 
     def list(self, status: ProposalStatus | None = None) -> list[Proposal]:
         proposals = [
-            Proposal.model_validate(json.loads(p.read_text()))
+            Proposal.model_validate(json.loads(p.read_text(encoding="utf-8")))
             for p in sorted(self.directory.glob("*.json"))
         ]
         if status is not None:

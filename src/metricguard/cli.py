@@ -687,7 +687,12 @@ def ui(
         "[dim]Investigations can stage proposals; human approval remains enforced.[/dim]"
     )
     uvicorn.run(
-        create_app(store, preferred_run_id=selected_id, replay_mode=bool(replay)),
+        create_app(
+            store,
+            preferred_run_id=selected_id,
+            replay_mode=bool(replay),
+            auto_discover=not bool(replay),
+        ),
         host=host,
         port=port,
     )

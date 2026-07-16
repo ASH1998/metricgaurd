@@ -19,11 +19,14 @@ class RunStatus(str, Enum):
     RUNNING = "running"
     COMPLETED = "completed"
     ITERATION_LIMIT = "iteration_limit"
+    CANCELED = "canceled"
     FAILED = "failed"
 
 
 class RunOrigin(str, Enum):
     HUMAN = "human"
+    AUTOMATIC = "automatic"
+    DELEGATED = "delegated"
     SENTINEL = "sentinel"
 
 
@@ -47,6 +50,8 @@ class AgentRun(BaseModel):
     model: str
     origin: RunOrigin = RunOrigin.HUMAN
     trigger: dict[str, Any] = Field(default_factory=dict)
+    parent_run_id: str = ""
+    child_run_ids: list[str] = Field(default_factory=list)
     autonomous_outcome: AutonomousOutcome | None = None
     status: RunStatus = RunStatus.RUNNING
     started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -73,7 +78,7 @@ class AgentRunStore:
         path = self._path(run.id)
         temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
         try:
-            with temporary.open("w") as handle:
+            with temporary.open("w", encoding="utf-8") as handle:
                 handle.write(run.model_dump_json(indent=2))
                 handle.flush()
                 os.fsync(handle.fileno())
@@ -89,8 +94,15 @@ class AgentRunStore:
         *,
         origin: RunOrigin = RunOrigin.HUMAN,
         trigger: dict[str, Any] | None = None,
+        parent_run_id: str = "",
     ) -> AgentRun:
-        run = AgentRun(goal=goal, model=model, origin=origin, trigger=trigger or {})
+        run = AgentRun(
+            goal=goal,
+            model=model,
+            origin=origin,
+            trigger=trigger or {},
+            parent_run_id=parent_run_id,
+        )
         self.save(run)
         return run
 
@@ -99,7 +111,7 @@ class AgentRunStore:
         if not path.exists():
             return None
         try:
-            return AgentRun.model_validate(json.loads(path.read_text()))
+            return AgentRun.model_validate(json.loads(path.read_text(encoding="utf-8")))
         except (OSError, json.JSONDecodeError, ValidationError):
             return None
 
@@ -107,7 +119,7 @@ class AgentRunStore:
         runs: list[AgentRun] = []
         for path in self.directory.glob("*.json"):
             try:
-                runs.append(AgentRun.model_validate(json.loads(path.read_text())))
+                runs.append(AgentRun.model_validate(json.loads(path.read_text(encoding="utf-8"))))
             except (OSError, json.JSONDecodeError, ValidationError):
                 continue
         return sorted(runs, key=lambda run: run.started_at, reverse=True)
@@ -144,3 +156,20 @@ class AgentRunStore:
         run.completed_at = datetime.now(timezone.utc)
         self.save(run)
         return run
+
+    def cancel(self, run_id: str) -> AgentRun | None:
+        run = self.get(run_id)
+        if run is None or run.completed_at is not None:
+            return run
+        return self.complete(
+            run,
+            "Investigation stopped by a user. No DataHub writes were executed.",
+            status=RunStatus.CANCELED,
+        )
+
+    def delete(self, run_id: str) -> bool:
+        run = self.get(run_id)
+        if run is None:
+            return False
+        self._path(run_id).unlink(missing_ok=True)
+        return True

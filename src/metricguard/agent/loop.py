@@ -66,7 +66,7 @@ lead with the conflict and numeric impact, explain the recommendation, then \
 state the exact action status and next human step. Do not reproduce full SQL.
 """
 
-MAX_ITERATIONS = 20
+MAX_ITERATIONS = settings.agent_max_iterations
 MAX_FINAL_RETRIES = 2
 
 _UNSUPPORTED_FINAL_CLAIMS = (
@@ -159,9 +159,15 @@ async def arun_agent_result(
                 )
                 messages.append(ToolMessage(content=str(result), tool_call_id=call["id"]))
 
-        answer = "Agent stopped: iteration limit reached without a final answer."
+        answer = (
+            f"Investigation paused after {MAX_ITERATIONS} reasoning steps without a grounded "
+            "final answer. The evidence remains available; continue with a narrower family."
+        )
         store.complete(run, answer, status=RunStatus.ITERATION_LIMIT)
         return AgentExecution(answer, run.id, store.path_for(run.id))
+    except asyncio.CancelledError:
+        # The UI stop endpoint persists the canceled state before canceling this task.
+        raise
     except Exception as exc:
         store.complete(run, "", status=RunStatus.FAILED, error=str(exc))
         raise

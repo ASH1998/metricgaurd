@@ -17,6 +17,14 @@ def _bool(value: str | None, default: bool = True) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _positive_int(value: str | None, default: int) -> int:
+    try:
+        parsed = int(value or default)
+    except ValueError:
+        return default
+    return parsed if parsed > 0 else default
+
+
 @dataclass(frozen=True)
 class Settings:
     # LLM — LangChain provider-prefixed model string, so any provider works.
@@ -41,6 +49,11 @@ class Settings:
         default_factory=lambda: Path(os.getenv("METRICGUARD_CONTRACTS_DIR", ".metricguard/contracts"))
     )
     dialect: str = field(default_factory=lambda: os.getenv("METRICGUARD_DIALECT", "postgres"))
+    agent_max_iterations: int = field(
+        default_factory=lambda: _positive_int(
+            os.getenv("METRICGUARD_MAX_AGENT_ITERATIONS"), 40
+        )
+    )
     require_approval: bool = field(
         default_factory=lambda: _bool(os.getenv("METRICGUARD_REQUIRE_APPROVAL"), default=True)
     )

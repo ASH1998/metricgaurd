@@ -12,7 +12,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from metricguard.agent.runs import AgentRun, RunOrigin, ToolTrace
+from metricguard.agent.runs import AgentRun, RunOrigin, RunStatus, ToolTrace
 from metricguard.models import DivergencePoint, DivergenceReport
 
 SCHEMA_VERSION = "1.0"
@@ -21,11 +21,14 @@ SCHEMA_VERSION = "1.0"
 class RunSummary(BaseModel):
     id: str
     title: str
+    headline: str = ""
     goal: str
     model: str
     status: str
     origin: str = "human"
     outcome: str = ""
+    parent_run_id: str = ""
+    child_run_ids: list[str] = Field(default_factory=list)
     changed_assets: list[str] = Field(default_factory=list)
     started_at: datetime
     completed_at: datetime | None = None
@@ -53,6 +56,15 @@ class DecisionSummary(BaseModel):
     proposal_ids: list[str] = Field(default_factory=list)
 
 
+class InvestigationFocus(BaseModel):
+    """The evidence that makes an investigation worth a human's attention."""
+
+    trigger: str
+    semantic_break: str
+    executed_proof: str
+    governance_boundary: str
+
+
 class MissionControlRun(BaseModel):
     schema_version: Literal["1.0"] = SCHEMA_VERSION
     run: RunSummary
@@ -60,6 +72,7 @@ class MissionControlRun(BaseModel):
     divergence: DivergenceReport | None = None
     divergences: list[DivergenceReport] = Field(default_factory=list)
     decision: DecisionSummary | None = None
+    focus: InvestigationFocus | None = None
     proof_unavailable_reason: str = ""
 
 
@@ -72,10 +85,7 @@ def build_mission_control_run(run: AgentRun) -> MissionControlRun:
         TimelineEvent(
             id="run-start",
             kind="run",
-            title=(
-                "Sentinel investigation started"
-                if run.origin == RunOrigin.SENTINEL else "Investigation started"
-            ),
+            title=_start_title(run),
             detail=_start_detail(run, changed_assets),
             status="running" if run.status.value == "running" else "success",
             recorded_at=run.started_at,
@@ -87,13 +97,17 @@ def build_mission_control_run(run: AgentRun) -> MissionControlRun:
         timeline.append(TimelineEvent(
             id="run-complete",
             kind="complete",
-            title="Investigation complete" if not run.error else "Investigation failed",
+            title=_completion_title(run),
             detail=_final_summary(
                 run.final_answer,
                 run.error,
                 run.autonomous_outcome.value if run.autonomous_outcome else "",
             ),
-            status="error" if run.error else "success",
+            status=(
+                "error" if run.error else "warning"
+                if run.status in {RunStatus.CANCELED, RunStatus.ITERATION_LIMIT}
+                else "success"
+            ),
             recorded_at=run.completed_at,
             offset_ms=_offset_ms(run.completed_at, run.started_at),
         ))
@@ -102,11 +116,14 @@ def build_mission_control_run(run: AgentRun) -> MissionControlRun:
         run=RunSummary(
             id=run.id,
             title=_run_title(run, changed_assets),
+            headline=_headline(divergence),
             goal=run.goal,
             model=run.model,
             status=run.status.value,
             origin=run.origin.value,
             outcome=run.autonomous_outcome.value if run.autonomous_outcome else "",
+            parent_run_id=run.parent_run_id,
+            child_run_ids=run.child_run_ids,
             changed_assets=changed_assets,
             started_at=run.started_at,
             completed_at=run.completed_at,
@@ -117,6 +134,7 @@ def build_mission_control_run(run: AgentRun) -> MissionControlRun:
         divergence=divergence,
         divergences=divergences,
         decision=_decision_summary(run),
+        focus=_investigation_focus(run, divergences),
         proof_unavailable_reason=_proof_unavailable_reason(run.tool_traces, divergences),
     )
 
@@ -147,6 +165,18 @@ def _describe_tool(
             f"{result.get('unchanged_count', 0)} unchanged skipped · "
             f"{changed} material · {len(result.get('cosmetic_changes', []))} cosmetic · "
             f"decision: {str(result.get('decision', 'recorded')).replace('_', ' ')}",
+            "decision",
+        )
+    if name == "agent_plan_conflict_investigations" and result:
+        investigations = result.get("investigations", [])
+        families = [
+            str(item.get("metric_family", "")).replace("_", " ")
+            for item in investigations if isinstance(item, dict)
+        ]
+        return (
+            "Investigation plan created",
+            f"Agent chose {len(families)} focused run{'s' if len(families) != 1 else ''}: "
+            f"{', '.join(families) or 'none'} · {result.get('decision_source', 'recorded')}",
             "decision",
         )
     if result and "points" in result and "mean_pct_divergence" in result:
@@ -214,6 +244,11 @@ def _changed_assets(run: AgentRun) -> list[str]:
 
 
 def _run_title(run: AgentRun, changed_assets: list[str]) -> str:
+    if run.origin == RunOrigin.AUTOMATIC:
+        return "Organization-wide metric conflict scan"
+    if run.origin == RunOrigin.DELEGATED:
+        family = str(run.trigger.get("metric_family", "")).replace("_", " ").strip()
+        return f"Focused investigation · {family}" if family else "Focused investigation"
     if run.origin == RunOrigin.SENTINEL:
         if len(changed_assets) == 1:
             return f"Change detected · {changed_assets[0]}"
@@ -226,7 +261,93 @@ def _run_title(run: AgentRun, changed_assets: list[str]) -> str:
     return goal[:72] + ("…" if len(goal) > 72 else "")
 
 
+def _headline(divergence: DivergenceReport | None) -> str:
+    if divergence is None:
+        return ""
+    metric = _shared_metric_name(divergence.left_name, divergence.right_name)
+    left = _display_name(divergence.left_name, metric)
+    right = _display_name(divergence.right_name, metric)
+    return f"{metric.title()} conflict: {left} vs {right}"
+
+
+def _investigation_focus(
+    run: AgentRun, divergences: list[DivergenceReport],
+) -> InvestigationFocus | None:
+    discovery = _discovery_summary(run.tool_traces)
+    summary = discovery.get("summary", {})
+    first = divergences[0] if divergences else None
+    if not summary and first is None:
+        return None
+
+    candidate_count = summary.get("candidate_count", 0)
+    family_count = summary.get("metric_family_count", 0)
+    conflict_count = summary.get("conflicting_pairs", 0)
+    trigger = (
+        f"{candidate_count} candidate definitions formed {family_count} conflict "
+        f"famil{'y' if family_count == 1 else 'ies'} with {conflict_count} conflicting pairs."
+        if summary else "MetricGuard recorded a semantic conflict worth investigating."
+    )
+    semantic_break = _semantic_break(discovery)
+    if first is None:
+        executed_proof = "Numeric proof is unavailable until a warehouse-backed comparison can run."
+    else:
+        metric = _shared_metric_name(first.left_name, first.right_name)
+        executed_proof = (
+            f"{metric.title()} was executed across {len(first.points)} comparison period"
+            f"{'s' if len(first.points) != 1 else ''}; mean gap {first.mean_pct_divergence:.2f}%."
+        )
+    return InvestigationFocus(
+        trigger=trigger,
+        semantic_break=semantic_break,
+        executed_proof=executed_proof,
+        governance_boundary="A human must approve before MetricGuard writes the decision back to DataHub.",
+    )
+
+
+def _discovery_summary(traces: list[ToolTrace]) -> dict[str, Any]:
+    for trace in traces:
+        result = _json_object(trace.result)
+        if result and isinstance(result.get("summary"), dict):
+            return result
+    return {}
+
+
+def _semantic_break(discovery: dict[str, Any]) -> str:
+    for cluster in discovery.get("clusters", []):
+        for conflict in cluster.get("conflicts", []):
+            fields = [str(diff.get("field", "")) for diff in conflict.get("diffs", []) if diff.get("field")]
+            if fields:
+                labels = ", ".join(field.replace("_", " ") for field in fields[:3])
+                return f"Definitions disagree on {labels}."
+    return "MetricGuard compared SQL semantics before recommending any canonical definition."
+
+
+def _shared_metric_name(left: str, right: str) -> str:
+    left_words = left.replace("_", " ").split()
+    right_words = right.replace("_", " ").split()
+    shared = [word for word in left_words if word in right_words]
+    return " ".join(shared) or "Metric"
+
+
+def _display_name(name: str, metric: str) -> str:
+    metric_words = set(metric.lower().split())
+    words = [word for word in name.replace("_", " ").split() if word.lower() not in metric_words]
+    labels = {"exec": "Executive", "ops": "Operations"}
+    return " ".join(labels.get(word.lower(), word.capitalize()) for word in words) or name.replace("_", " ").title()
+
+
 def _start_detail(run: AgentRun, changed_assets: list[str]) -> str:
+    if run.origin == RunOrigin.AUTOMATIC:
+        return (
+            "MetricGuard started an organization-wide discovery scan because no metric "
+            "conflict was specified."
+        )
+    if run.origin == RunOrigin.DELEGATED:
+        family = str(run.trigger.get("metric_family", "metric family")).replace("_", " ")
+        return (
+            f"The discovery agent delegated this focused {family} investigation. "
+            f"{run.trigger.get('coordinator_reason', '')}"
+        ).strip()
     if run.origin == RunOrigin.SENTINEL and changed_assets:
         return (
             f"DataHub reported {len(changed_assets)} material change"
@@ -242,6 +363,21 @@ def _decision_summary(run: AgentRun) -> DecisionSummary | None:
         return DecisionSummary(
             state="failed", title="Investigation failed", detail=run.error,
             next_action="Fix the configuration error, then retry the investigation.",
+        )
+    if run.status == RunStatus.CANCELED:
+        return DecisionSummary(
+            state="dismissed", title="Investigation stopped",
+            detail="A user stopped this run. Recorded evidence was kept; no write was executed.",
+            next_action="Delete the run if its audit trail is no longer needed.",
+        )
+    if run.status == RunStatus.ITERATION_LIMIT:
+        return DecisionSummary(
+            state="human", title="Investigation needs continuation",
+            detail=(
+                "The agent used its reasoning budget before producing a grounded conclusion. "
+                "Broad requests are now split into focused child investigations to avoid this."
+            ),
+            next_action="Start a focused follow-up for the unresolved metric family.",
         )
     outcome = run.autonomous_outcome.value if run.autonomous_outcome else ""
     if outcome == "staged_resolution" or proposal_ids:
@@ -269,12 +405,44 @@ def _decision_summary(run: AgentRun) -> DecisionSummary | None:
             detail="The observed change did not require a governance resolution.",
             next_action="No action required; the dismissal remains in the audit trail.",
         )
+    if run.child_run_ids:
+        count = len(run.child_run_ids)
+        return DecisionSummary(
+            state="complete", title="Focused investigations launched",
+            detail=(
+                f"The discovery agent chose {count} metric famil"
+                f"{'y' if count == 1 else 'ies'} and opened an independent run for each."
+            ),
+            next_action="Review the focused child investigations in the sidebar.",
+        )
     if run.completed_at:
         return DecisionSummary(
             state="complete", title="Investigation complete",
             detail="MetricGuard completed its evidence checks. Review the final timeline event.",
         )
     return None
+
+
+def _start_title(run: AgentRun) -> str:
+    if run.origin == RunOrigin.SENTINEL:
+        return "Sentinel investigation started"
+    if run.origin == RunOrigin.AUTOMATIC:
+        return "Organization-wide scan started"
+    if run.origin == RunOrigin.DELEGATED:
+        return "Focused investigation delegated"
+    return "Investigation started"
+
+
+def _completion_title(run: AgentRun) -> str:
+    if run.error:
+        return "Investigation failed"
+    if run.status == RunStatus.CANCELED:
+        return "Investigation stopped"
+    if run.status == RunStatus.ITERATION_LIMIT:
+        return "Investigation needs continuation"
+    if run.child_run_ids:
+        return "Focused investigations launched"
+    return "Investigation complete"
 
 
 def _proof_unavailable_reason(
