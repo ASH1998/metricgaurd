@@ -10,7 +10,7 @@ MANIFEST = ROOT / "examples" / "warehouse_proofs.json"
 
 
 def _proofs() -> dict[str, dict[str, object]]:
-    payload = json.loads(MANIFEST.read_text())
+    payload = json.loads(MANIFEST.read_text(encoding="utf-8"))
     return {proof["id"]: proof for proof in payload["proofs"]}
 
 
@@ -23,7 +23,7 @@ def _fixture_sha256() -> str:
 
 
 def test_frozen_manifest_identifies_immutable_demo_fixture():
-    payload = json.loads(MANIFEST.read_text())
+    payload = json.loads(MANIFEST.read_text(encoding="utf-8"))
     fixture = payload["fixture"]
 
     assert fixture["path"] == "data/fiction_retail"
@@ -36,7 +36,9 @@ def test_frozen_manifest_identifies_immutable_demo_fixture():
 
 
 def test_weekly_revenue_evidence_matches_frozen_proof():
-    evidence = json.loads((ROOT / "examples" / "weekly_revenue_evidence.json").read_text())
+    evidence = json.loads(
+        (ROOT / "examples" / "weekly_revenue_evidence.json").read_text(encoding="utf-8")
+    )
     proof = _proofs()["weekly_revenue"]
     warehouse_proof = evidence["finance_vs_executive"]["warehouse_proof"]
 
@@ -54,10 +56,10 @@ def test_public_docs_repeat_only_frozen_proof_figures():
     revenue = _proofs()["weekly_revenue"]
     order_volume = _proofs()["weekly_order_volume"]
     refunds = _proofs()["weekly_refund_amount"]
-    readme = (ROOT / "README.md").read_text()
-    pitch = (ROOT / "docs" / "pitch.md").read_text()
-    invoke = (ROOT / "docs" / "invoke.md").read_text()
-    progress = (ROOT / "progress.md").read_text()
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    pitch = (ROOT / "docs" / "pitch.md").read_text(encoding="utf-8")
+    invoke = (ROOT / "docs" / "invoke.md").read_text(encoding="utf-8")
+    progress = (ROOT / "progress.md").read_text(encoding="utf-8")
 
     assert f"{revenue['mean_pct_divergence']:.2f}% / {revenue['max_pct_divergence']:.2f}%" in readme
     assert f"${revenue['total_abs_divergence']:,.2f}" in readme

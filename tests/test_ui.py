@@ -63,6 +63,35 @@ def test_contract_projects_timeline_and_real_divergence():
     assert contract.divergence.points[0].right_value == 115.0
     assert contract.run.has_divergence is True
     assert contract.run.title == "Investigate the weekly revenue conflict"
+    assert contract.run.headline == "Revenue conflict: Finance vs Executive"
+    assert contract.focus is not None
+    assert "1 comparison period" in contract.focus.executed_proof
+
+
+def test_contract_explains_the_discovery_signal_before_the_proof():
+    run = _run()
+    run.tool_traces.insert(0, ToolTrace(
+        name="tool_investigate_datahub_conflicts",
+        result=json.dumps({
+            "summary": {
+                "candidate_count": 3,
+                "metric_family_count": 1,
+                "conflicting_pairs": 2,
+            },
+            "clusters": [{"conflicts": [{"diffs": [
+                {"field": "filters"}, {"field": "deduplication"},
+            ]}]}],
+        }),
+        recorded_at=run.started_at + timedelta(seconds=2),
+    ))
+
+    contract = build_mission_control_run(run)
+
+    assert contract.focus is not None
+    assert contract.focus.trigger == (
+        "3 candidate definitions formed 1 conflict family with 2 conflicting pairs."
+    )
+    assert contract.focus.semantic_break == "Definitions disagree on filters, deduplication."
 
 
 def test_contract_exposes_grounding_intervention():
@@ -202,6 +231,38 @@ def test_investigation_api_is_disabled_in_replay_mode(tmp_path: Path):
     assert store.list() == []
 
 
+def test_live_ui_starts_an_organization_wide_discovery_when_empty(monkeypatch, tmp_path: Path):
+    store = AgentRunStore(tmp_path / "runs")
+    observed: list[str] = []
+
+    async def finish(goal, run_store, run, spawn_child):
+        observed.append(goal)
+        run_store.complete(run, "Organization-wide discovery completed.")
+
+    from metricguard.agent import coordinator
+
+    monkeypatch.setattr(coordinator, "coordinate_conflict_investigations", finish)
+    with TestClient(create_app(store, auto_discover=True)) as client:
+        response = client.get("/api/runs")
+
+    assert response.status_code == 200
+    assert len(response.json()["runs"]) == 1
+    run = store.list()[0]
+    assert run.origin == RunOrigin.AUTOMATIC
+    assert run.goal == server.AUTOMATIC_DISCOVERY_GOAL
+    assert observed == [server.AUTOMATIC_DISCOVERY_GOAL]
+
+
+def test_contract_labels_automatic_discovery_without_a_user_metric():
+    run = _run()
+    run.origin = RunOrigin.AUTOMATIC
+
+    contract = build_mission_control_run(run)
+
+    assert contract.run.title == "Organization-wide metric conflict scan"
+    assert "organization-wide discovery scan" in contract.timeline[0].detail
+
+
 def test_investigation_api_requires_json_content_type(tmp_path: Path):
     store = AgentRunStore(tmp_path / "runs")
     client = TestClient(create_app(store))
@@ -215,11 +276,95 @@ def test_investigation_api_requires_json_content_type(tmp_path: Path):
     assert store.list() == []
 
 
+def test_run_can_be_stopped_and_deleted(tmp_path: Path):
+    store = AgentRunStore(tmp_path / "runs")
+    run = store.start("Investigate a running metric conflict", "test:model")
+
+    with TestClient(create_app(store)) as client:
+        stopped = client.post(f"/api/runs/{run.id}/stop")
+        deleted = client.delete(f"/api/runs/{run.id}")
+
+    assert stopped.status_code == 200
+    assert stopped.json()["run"]["status"] == "canceled"
+    assert stopped.json()["decision"]["title"] == "Investigation stopped"
+    assert deleted.status_code == 200
+    assert store.get(run.id) is None
+
+
+def test_broad_request_fans_out_into_agent_selected_children(monkeypatch, tmp_path: Path):
+    from metricguard.agent import coordinator
+    from metricguard.agent.coordinator import PlannedInvestigation
+
+    store = AgentRunStore(tmp_path / "runs")
+
+    async def coordinate(goal, run_store, run, spawn_child):
+        items = [
+            PlannedInvestigation(
+                metric_family="weekly_revenue", reason="Material revenue conflict", priority=5,
+            ),
+            PlannedInvestigation(
+                metric_family="weekly_refund_amount", reason="Material refund conflict", priority=4,
+            ),
+        ]
+        run.child_run_ids = [spawn_child(item, run) for item in items]
+        run_store.complete(run, "Delegated two focused investigations.")
+
+    async def finish_child(goal, run_store, run):
+        run_store.complete(run, f"Completed: {goal}")
+
+    monkeypatch.setattr(coordinator, "coordinate_conflict_investigations", coordinate)
+    monkeypatch.setattr(server, "_run_investigation", finish_child)
+    with TestClient(create_app(store)) as client:
+        response = client.post(
+            "/api/investigations",
+            json={"goal": "find conflicting reports across the organization"},
+        )
+        client.get("/api/runs")
+
+    assert response.status_code == 202
+    runs = store.list()
+    parent = next(run for run in runs if run.origin == RunOrigin.HUMAN)
+    children = [run for run in runs if run.origin == RunOrigin.DELEGATED]
+    assert len(children) == 2
+    assert len(parent.child_run_ids) == 2
+    assert {run.trigger["metric_family"] for run in children} == {
+        "weekly_revenue", "weekly_refund_amount",
+    }
+
+
+def test_run_proposals_are_exposed_for_the_review_tab(monkeypatch, tmp_path: Path):
+    from metricguard.datahub import proposals as proposals_module
+    from metricguard.datahub.proposals import Proposal, ProposalStore
+
+    store = AgentRunStore(tmp_path / "runs")
+    proposal_store = ProposalStore(tmp_path / "proposals")
+    proposal = proposal_store.stage(Proposal(
+        metric="weekly_revenue",
+        kind="tag",
+        target="urn:li:dataset:finance",
+        rationale="Mark the approved canonical definition.",
+    ))
+    run = _run()
+    run.tool_traces.append(ToolTrace(
+        name="tool_stage_canonical_resolution",
+        result=json.dumps({"staged_proposal_ids": [proposal.id]}),
+    ))
+    store.save(run)
+    monkeypatch.setattr(proposals_module, "ProposalStore", lambda: proposal_store)
+
+    client = TestClient(create_app(store))
+    response = client.get(f"/api/runs/{run.id}/proposals")
+
+    assert response.status_code == 200
+    assert response.json()["proposals"][0]["id"] == proposal.id
+    assert response.json()["proposals"][0]["status"] == "pending"
+
+
 def test_export_is_a_zero_backend_snapshot(tmp_path: Path):
     index_path = export_run(_run(), tmp_path / "site")
 
     assert index_path.exists()
-    assert "New investigation" in index_path.read_text()
+    assert "New investigation" in index_path.read_text(encoding="utf-8")
     exported = json.loads((tmp_path / "site/data/golden-ui.json").read_text())
     run_index = json.loads((tmp_path / "site/data/index.json").read_text())
     assert exported["divergence"]["mean_pct_divergence"] == 15.0
@@ -227,10 +372,17 @@ def test_export_is_a_zero_backend_snapshot(tmp_path: Path):
 
 
 def test_frontend_keeps_sse_reconnect_and_handles_units_and_flat_series():
-    html = dashboard_html().read_text()
+    html = dashboard_html().read_text(encoding="utf-8")
 
     assert "S.stream.onerror=()=>text('mode','Reconnecting…')" in html
     assert "S.stream.onerror=()=>S.stream.close()" not in html
     assert "const formatterFor=" in html
     assert "rawHi===rawLo" in html
     assert "const money=" not in html
+    assert "Why MetricGuard investigated" in html
+    assert "proofSelect" in html
+    assert "Play from start" in html
+    assert "stopRun" in html
+    assert "deleteRun" in html
+    assert "proposalsTab" in html
+    assert '<span class="version">alpha</span>' not in html
