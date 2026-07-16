@@ -24,3 +24,6 @@ build/
 chore/
 data/*
 !data/fiction_retail/
+*.pptx
+deck.md
+future.md

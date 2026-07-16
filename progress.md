@@ -1,14 +1,18 @@
 # MetricGuard — Progress Log
 
-_Last updated: 2026-07-12. Deep session narratives: `docs/tags.md`._
+_Last updated: 2026-07-16. Deep session narratives: `docs/tags.md`._
 
-## Status: core complete; operational UI and sentinel vertical slices built
+## Status: core complete; autonomous investigation fan-out and governed review UI built
 
 Everything below is **built**; each item states whether it was verified against
 live infrastructure or locally:
 
 - **Deterministic core** — signature extraction, comparison/severity, divergence
-  math, clustering, guard drift. Full suite passing, CI (ruff + pytest), Apache-2.0.
+  math, clustering, guard drift. Ruff and 100 tests pass locally; the remaining
+  regression is a pre-existing frozen-fixture integrity mismatch (`d33a2ae…` in
+  the manifest vs `de770ac…` on disk), which should be resolved by restoring or
+  deliberately re-freezing the immutable demo data rather than weakening the
+  assertion. CI is ruff + pytest; licensing is Apache-2.0.
 - **Graph-native discovery** — `discover --from-graph` rediscovers four seeded
   conflict families from *semantics, not names*, through the official DataHub
   MCP server (search → observed queries → extractor → clustering).
@@ -31,18 +35,26 @@ live infrastructure or locally:
   not a demo-only replay page. Users can list and switch durable investigations,
   start a real agent investigation from the browser, follow running work through
   SSE, inspect the agent/evidence trail, and view executed divergence as an inline
-  SVG chart. The browser calls the existing agent/run-store path; it does not call
-  an LLM directly or bypass the DataHub approval choke point.
+  SVG chart. A fresh live workspace now starts an organization-wide conflict scan
+  automatically. Broad requests are decomposed by an LLM coordinator into up to
+  six focused child investigations, while the deterministic fallback preserves the
+  same behavior without a planning response. Running scans can be stopped, local
+  runs can be deleted, and staged changes have a dedicated proposal review tab.
+  The browser calls the existing agent/run-store path; it does not call an LLM
+  directly or bypass the DataHub approval choke point.
 - **Decision-first UX** — Sentinel runs now have meaningful asset-based titles and
   origin/outcome badges; staged resolutions, refusals, dismissals, and failures
   render as a prominent next-action banner. Raw tool arguments are collapsed behind
   evidence disclosures, exact warehouse proof failures replace generic empty states,
   and investigations with multiple successful divergence proofs get chart tabs.
+  Broad-scan children are visually nested under their parent. Proposal rows now lead
+  with the governed action and a human-readable asset name; DataHub URNs, proposal
+  IDs, and full agent rationale stay available under collapsed technical details.
 - **Replay + integration API** — frozen JSON contract v1.0, `GET /api/runs`,
   `GET /api/runs/<id>`, `POST /api/investigations`, and SSE
-  `/api/stream/<id>`. `metricguard ui --replay <run-id>` keeps client-timed replay;
-  `--export <run-id> -o site/` emits a zero-backend snapshot using the same page
-  and contract.
+  `/api/stream/<id>`, plus stop, delete, and run-scoped proposal endpoints.
+  `metricguard ui --replay <run-id>` keeps client-timed replay; `--export <run-id>
+  -o site/` emits a zero-backend snapshot using the same page and contract.
 - **Golden replay (2026-07-12)** — `examples/golden_run/` commits one completed
   deterministic full-catalog audit with all three warehouse proofs. A fresh
   clone can run `uv run metricguard ui --replay golden` with no DataHub,
@@ -53,6 +65,8 @@ live infrastructure or locally:
   rendering of the real 71-point weekly-revenue proof. Visually checked at 1280px
   and 390px with no horizontal overflow. Opening `index.html` through `file://`
   intentionally shows startup guidance because artifacts require the local server.
+  The July 16 Browser audit also verified the live 1350×1216 evidence/proposal flow,
+  proposal count, disclosure behavior, and an empty warning/error console.
 - **Live-flow hardening** — run saves use fsync + atomic replacement; readers skip
   transient or invalid JSON; SSE retains browser auto-reconnect; replay mode rejects
   investigations; the mutation endpoint requires `application/json`; local and graph
@@ -143,10 +157,9 @@ when work started. This repo is the submission repo.
 
 The current UI is the operational foundation, not the finished feature. Next:
 
-- ship a committed golden run so replay works from a fresh clone;
 - add the organization conflict map with negative controls visibly excluded;
-- add proposal review/status and human approval hand-off in the UI while keeping
-  every mutation behind `DataHubClient.write()`;
+- add in-UI approval/rejection hand-off controls while keeping every mutation
+  behind `DataHubClient.write()`;
 - execute `make demo` end-to-end on a clean Docker machine;
 - finish the refusal scenario, decision-legibility traces, and Guard PR workflow.
 - live-verify sentinel against an ingested rogue Query entity, then decompose the
