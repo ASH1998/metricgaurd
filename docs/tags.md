@@ -7,7 +7,7 @@ making write-back real end-to-end (#4) including the structured-properties
 instance. Commands, findings, bugs, and fixes are all captured.
 
 > Environment: DataHub Core v1.5.0.6 (docker quickstart on remote EC2, SSH host
-> `awscooee`, tunneled to `localhost:9002`, GMS via
+> `internal_too_aws`, tunneled to `localhost:9002`, GMS via
 > `localhost:9002/api/gms`). Warehouse: fiction-retail in the `metric` schema on
 > RDS. MCP: `uvx mcp-server-datahub` over stdio.
 
@@ -37,8 +37,8 @@ index, so a down/red OpenSearch produces exactly this while GMS still answers.
 
 Diagnosis (all read-only):
 ```bash
-ssh awscooee 'docker ps -a --format "table {{.Names}}\t{{.Status}}"'   # opensearch Exited (127)
-ssh awscooee 'docker logs --tail 40 datahub-opensearch-1'
+ssh internal_too_aws 'docker ps -a --format "table {{.Names}}\t{{.Status}}"'   # opensearch Exited (127)
+ssh internal_too_aws 'docker logs --tail 40 datahub-opensearch-1'
 ```
 Root cause: `java.lang.OutOfMemoryError: unable to create native thread
 (pthread_create EAGAIN)` — **thread/process-limit exhaustion**, NOT RAM
@@ -47,7 +47,7 @@ after ~26h and fataled.
 
 Fix: restart the container (the leaked threads free once it's down):
 ```bash
-ssh awscooee 'docker start datahub-opensearch-1'
+ssh internal_too_aws 'docker start datahub-opensearch-1'
 ```
 Result: cluster returned to **yellow** (normal for single-node quickstart — just
 unassigned replica shards), UI listed secrets again, source reappeared (it was
@@ -83,15 +83,25 @@ ingestion on, a re-run also soft-deletes tables that vanished from Postgres.
 
 ### 1d. `scripts/datahub_doctor.sh` — repeatable health check + recovery
 Read-only by default; `--fix` restarts Exited containers (OpenSearch first);
+starts `docker.service` when possible, and verifies that the frontend is
+published and answering on the server's port 9002. `--enable-autostart` enables
+Docker at boot and sets the long-running quickstart containers to
+`restart=unless-stopped`; the one-shot system-update container is excluded.
 `--logs` dumps recent ingestion-failure detail. Run from the laptop over the
 tunnel host without copying:
 ```bash
-ssh awscooee 'bash -s'          < scripts/datahub_doctor.sh   # diagnose
-ssh awscooee 'bash -s' -- --fix < scripts/datahub_doctor.sh   # restart downed containers
+ssh internal_too_aws 'bash -s'          < scripts/datahub_doctor.sh   # diagnose
+ssh internal_too_aws 'bash -s' -- --fix < scripts/datahub_doctor.sh   # restart downed containers
+ssh internal_too_aws 'bash -s' -- --fix --enable-autostart \
+  < scripts/datahub_doctor.sh                                  # recover + survive reboot
 ```
 Checks: container status, memory/disk, **native-thread ceiling** (`threads-max`
 vs live), **`vm.max_map_count`** (flags <262144), OpenSearch cluster health, GMS
-`/health`, and recent ingestion failures (incl. the empty-`==` pin).
+`/health`, frontend port publishing/server-local HTTP, Docker boot state,
+container restart policies, and recent ingestion failures (incl. the
+empty-`==` pin). If the server-local UI passes but `localhost:9002` on the
+laptop does not, recreate the SSH tunnel with
+`ssh -N -L 9002:127.0.0.1:9002 internal_too_aws`.
 
 ### 1e. Latent, still-open
 - `vm.max_map_count=65530` (< 262144 recommended) — OpenSearch will eventually
